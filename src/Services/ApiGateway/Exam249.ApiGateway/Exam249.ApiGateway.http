@@ -1,0 +1,6 @@
+@Exam249.ApiGateway_HostAddress = http://localhost:5079
+
+GET {{Exam249.ApiGateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

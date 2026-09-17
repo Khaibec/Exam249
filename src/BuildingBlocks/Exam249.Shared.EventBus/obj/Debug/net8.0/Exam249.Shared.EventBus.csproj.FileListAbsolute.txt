@@ -1,0 +1,15 @@
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\bin\Debug\net8.0\Exam249.Shared.EventBus.deps.json
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\bin\Debug\net8.0\Exam249.Shared.EventBus.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\bin\Debug\net8.0\Exam249.Shared.EventBus.pdb
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249.Shared.EventBus.GeneratedMSBuildEditorConfig.editorconfig
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249.Shared.EventBus.AssemblyInfoInputs.cache
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249.Shared.EventBus.AssemblyInfo.cs
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249.Shared.EventBus.csproj.CoreCompileInputs.cache
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249.Shared.EventBus.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\refint\Exam249.Shared.EventBus.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249.Shared.EventBus.pdb
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\ref\Exam249.Shared.EventBus.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\bin\Debug\net8.0\Exam249.Shared.Contracts.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\bin\Debug\net8.0\Exam249.Shared.Contracts.pdb
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249.Shared.EventBus.csproj.AssemblyReference.cache
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.EventBus\obj\Debug\net8.0\Exam249..4C204D20.Up2Date

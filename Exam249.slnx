@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Exam249.Shared.Common/Exam249.Shared.Common.csproj" />
+    <Project Path="src/BuildingBlocks/Exam249.Shared.Contracts/Exam249.Shared.Contracts.csproj" />
+    <Project Path="src/BuildingBlocks/Exam249.Shared.EventBus/Exam249.Shared.EventBus.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/AntiCheat/">
+    <Project Path="src/Services/AntiCheat/Exam249.AntiCheatService/Exam249.AntiCheatService.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/ApiGateway/">
+    <Project Path="src/Services/ApiGateway/Exam249.ApiGateway/Exam249.ApiGateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Classroom/">
+    <Project Path="src/Services/Classroom/Exam249.ClassroomService/Exam249.ClassroomService.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Exam/">
+    <Project Path="src/Services/Exam/Exam249.ExamService/Exam249.ExamService.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/">
+    <Project Path="src/Services/Identity/Exam249.IdentityService/Exam249.IdentityService.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/QuestionBank/">
+    <Project Path="src/Services/QuestionBank/Exam249.QuestionBankService/Exam249.QuestionBankService.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Reporting/">
+    <Project Path="src/Services/Reporting/Exam249.ReportingService/Exam249.ReportingService.csproj" />
+  </Folder>
+</Solution>

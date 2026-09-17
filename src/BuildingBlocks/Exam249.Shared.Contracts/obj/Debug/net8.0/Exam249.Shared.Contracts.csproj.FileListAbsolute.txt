@@ -1,0 +1,11 @@
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\bin\Debug\net8.0\Exam249.Shared.Contracts.deps.json
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\bin\Debug\net8.0\Exam249.Shared.Contracts.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\bin\Debug\net8.0\Exam249.Shared.Contracts.pdb
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\Exam249.Shared.Contracts.GeneratedMSBuildEditorConfig.editorconfig
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\Exam249.Shared.Contracts.AssemblyInfoInputs.cache
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\Exam249.Shared.Contracts.AssemblyInfo.cs
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\Exam249.Shared.Contracts.csproj.CoreCompileInputs.cache
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\Exam249.Shared.Contracts.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\refint\Exam249.Shared.Contracts.dll
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\Exam249.Shared.Contracts.pdb
+D:\cs-Projects\Exam249\src\BuildingBlocks\Exam249.Shared.Contracts\obj\Debug\net8.0\ref\Exam249.Shared.Contracts.dll

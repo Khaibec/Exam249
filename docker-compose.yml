@@ -1,0 +1,192 @@
+version: '3.8'
+
+services:
+  # 1. SQL Server Database Service
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: exam249-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Test_MatKhau_2026!Aa
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    networks:
+      - exam249-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Test_MatKhau_2026!Aa' -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # 2. RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: exam249-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - exam249-network
+
+  # 3. Identity Service
+  identity-service:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Exam249.IdentityService/Dockerfile
+    container_name: exam249-identity-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_Identity;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - exam249-network
+
+  # 4. Classroom Service
+  classroom-service:
+    build:
+      context: .
+      dockerfile: src/Services/Classroom/Exam249.ClassroomService/Dockerfile
+    container_name: exam249-classroom-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_Classroom;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - exam249-network
+
+  # 5. Question Bank Service
+  questionbank-service:
+    build:
+      context: .
+      dockerfile: src/Services/QuestionBank/Exam249.QuestionBankService/Dockerfile
+    container_name: exam249-questionbank-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_QuestionBank;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - exam249-network
+
+  # 6. Exam & Grading Service
+  exam-service:
+    build:
+      context: .
+      dockerfile: src/Services/Exam/Exam249.ExamService/Dockerfile
+    container_name: exam249-exam-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_Exam;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - Services__QuestionBankUrl=http://questionbank-service:8080
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      questionbank-service:
+        condition: service_started
+    networks:
+      - exam249-network
+
+  # 7. Anti-Cheat Service
+  anticheat-service:
+    build:
+      context: .
+      dockerfile: src/Services/AntiCheat/Exam249.AntiCheatService/Dockerfile
+    container_name: exam249-anticheat-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_AntiCheat;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - exam249-network
+
+  # 8. Reporting Service
+  reporting-service:
+    build:
+      context: .
+      dockerfile: src/Services/Reporting/Exam249.ReportingService/Dockerfile
+    container_name: exam249-reporting-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_Reporting;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - RabbitMq__Host=rabbitmq
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - exam249-network
+
+  # 9. API Gateway (YARP)
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/Services/ApiGateway/Exam249.ApiGateway/Dockerfile
+    container_name: exam249-api-gateway
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ReverseProxy__Clusters__identity-cluster__Destinations__destination1__Address=http://identity-service:8080
+      - ReverseProxy__Clusters__classroom-cluster__Destinations__destination1__Address=http://classroom-service:8080
+      - ReverseProxy__Clusters__questionbank-cluster__Destinations__destination1__Address=http://questionbank-service:8080
+      - ReverseProxy__Clusters__exam-cluster__Destinations__destination1__Address=http://exam-service:8080
+      - ReverseProxy__Clusters__anticheat-cluster__Destinations__destination1__Address=http://anticheat-service:8080
+      - ReverseProxy__Clusters__reporting-cluster__Destinations__destination1__Address=http://reporting-service:8080
+    depends_on:
+      - identity-service
+      - classroom-service
+      - questionbank-service
+      - exam-service
+      - anticheat-service
+      - reporting-service
+    networks:
+      - exam249-network
+
+  # 10. Frontend (Angular 19 + Nginx)
+  frontend:
+    build:
+      context: src/Frontend/exam249-web
+      dockerfile: Dockerfile
+    container_name: exam249-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - exam249-network
+
+networks:
+  exam249-network:
+    driver: bridge
+
+volumes:
+  mssql_data:

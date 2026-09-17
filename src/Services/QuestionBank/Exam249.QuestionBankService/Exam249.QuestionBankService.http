@@ -1,0 +1,6 @@
+@Exam249.QuestionBankService_HostAddress = http://localhost:5066
+
+GET {{Exam249.QuestionBankService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

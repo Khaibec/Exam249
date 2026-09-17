@@ -1,0 +1,317 @@
+{
+  "format": 1,
+  "restore": {
+    "D:\\cs-Projects\\Exam249\\src\\Services\\Identity\\Exam249.IdentityService\\Exam249.IdentityService.csproj": {}
+  },
+  "projects": {
+    "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Common\\Exam249.Shared.Common.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Common\\Exam249.Shared.Common.csproj",
+        "projectName": "Exam249.Shared.Common",
+        "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Common\\Exam249.Shared.Common.csproj",
+        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
+        "outputPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Common\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "framework": "net8.0",
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj": {
+                "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.400"
+      },
+      "frameworks": {
+        "net8.0": {
+          "framework": "net8.0",
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "BCrypt.Net-Next": {
+              "target": "Package",
+              "version": "[4.0.3, )"
+            },
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[8.0.13, )"
+            },
+            "System.IdentityModel.Tokens.Jwt": {
+              "target": "Package",
+              "version": "[8.4.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj",
+        "projectName": "Exam249.Shared.Contracts",
+        "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj",
+        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
+        "outputPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "framework": "net8.0",
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.400"
+      },
+      "frameworks": {
+        "net8.0": {
+          "framework": "net8.0",
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.EventBus\\Exam249.Shared.EventBus.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.EventBus\\Exam249.Shared.EventBus.csproj",
+        "projectName": "Exam249.Shared.EventBus",
+        "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.EventBus\\Exam249.Shared.EventBus.csproj",
+        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
+        "outputPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.EventBus\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "framework": "net8.0",
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj": {
+                "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.400"
+      },
+      "frameworks": {
+        "net8.0": {
+          "framework": "net8.0",
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "MassTransit": {
+              "target": "Package",
+              "version": "[8.3.6, )"
+            },
+            "MassTransit.RabbitMQ": {
+              "target": "Package",
+              "version": "[8.3.6, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "D:\\cs-Projects\\Exam249\\src\\Services\\Identity\\Exam249.IdentityService\\Exam249.IdentityService.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "D:\\cs-Projects\\Exam249\\src\\Services\\Identity\\Exam249.IdentityService\\Exam249.IdentityService.csproj",
+        "projectName": "Exam249.IdentityService",
+        "projectPath": "D:\\cs-Projects\\Exam249\\src\\Services\\Identity\\Exam249.IdentityService\\Exam249.IdentityService.csproj",
+        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
+        "outputPath": "D:\\cs-Projects\\Exam249\\src\\Services\\Identity\\Exam249.IdentityService\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "framework": "net8.0",
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Common\\Exam249.Shared.Common.csproj": {
+                "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Common\\Exam249.Shared.Common.csproj"
+              },
+              "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj": {
+                "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.Contracts\\Exam249.Shared.Contracts.csproj"
+              },
+              "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.EventBus\\Exam249.Shared.EventBus.csproj": {
+                "projectPath": "D:\\cs-Projects\\Exam249\\src\\BuildingBlocks\\Exam249.Shared.EventBus\\Exam249.Shared.EventBus.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.400"
+      },
+      "frameworks": {
+        "net8.0": {
+          "framework": "net8.0",
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.OpenApi": {
+              "target": "Package",
+              "version": "[8.0.30, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[8.0.13, )"
+            },
+            "Microsoft.EntityFrameworkCore.Tools": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.13, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[6.6.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
