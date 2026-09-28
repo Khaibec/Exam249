@@ -4,13 +4,13 @@ import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
-import { ApiResponse, Classroom, StudentDashboard } from '../../core/models/models';
+import { ApiResponse, StudentDashboard } from '../../core/models/models';
 import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   selector: 'app-student-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="space-y-6">
       
@@ -20,7 +20,7 @@ import { ToastService } from '../../core/services/toast.service';
           <h1 class="text-2xl font-black text-slate-900 tracking-tight">Khu Vực Học Sinh</h1>
           <p class="text-sm text-slate-500 mt-1">Xem các bài thi được giao, tham gia lớp học và kiểm tra kết quả thi.</p>
         </div>
-        <div class="mt-4 sm:mt-0">
+        <div class="mt-4 sm:mt-0 flex items-center space-x-3">
           <button (click)="showJoinModal.set(true)"
                   class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-md shadow-brand-500/20 transition-all">
             <i class="fa-solid fa-plus mr-2"></i>
@@ -32,16 +32,19 @@ import { ToastService } from '../../core/services/toast.service';
       <!-- Stats Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5" *ngIf="dashboard() as stats">
         
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl">
+        <a routerLink="/student/classes"
+           class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4 group">
+          <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
             <i class="fa-solid fa-chalkboard"></i>
           </div>
           <div>
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Lớp Đã Tham Gia</span>
             <div class="text-2xl font-black text-slate-900 mt-0.5">{{ stats.enrolledClassesCount }}</div>
-            <span class="text-xs text-slate-500 font-medium">Đang theo học</span>
+            <span class="text-xs text-brand-600 font-semibold flex items-center mt-0.5">
+              Xem chi tiết lớp <i class="fa-solid fa-arrow-right ml-1 text-[10px]"></i>
+            </span>
           </div>
-        </div>
+        </a>
 
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
           <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl">
@@ -54,16 +57,19 @@ import { ToastService } from '../../core/services/toast.service';
           </div>
         </div>
 
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-          <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl">
+        <a routerLink="/student/exams"
+           class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex items-center space-x-4 group">
+          <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
             <i class="fa-solid fa-square-check"></i>
           </div>
           <div>
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Đã Hoàn Thành</span>
             <div class="text-2xl font-black text-slate-900 mt-0.5">{{ stats.completedExamsCount }}</div>
-            <span class="text-xs text-slate-500 font-medium">Bài kiểm tra</span>
+            <span class="text-xs text-emerald-600 font-semibold flex items-center mt-0.5">
+              Lịch sử làm bài <i class="fa-solid fa-arrow-right ml-1 text-[10px]"></i>
+            </span>
           </div>
-        </div>
+        </a>
 
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
           <div class="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl">
@@ -72,7 +78,7 @@ import { ToastService } from '../../core/services/toast.service';
           <div>
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Điểm Trung Bình</span>
             <div class="text-2xl font-black text-brand-600 mt-0.5">{{ stats.averageScore }} / 10</div>
-            <span class="text-xs text-slate-500 font-medium">Học lực Giỏi</span>
+            <span class="text-xs text-slate-500 font-medium">Toàn bộ bài nộp</span>
           </div>
         </div>
 
@@ -85,7 +91,7 @@ import { ToastService } from '../../core/services/toast.service';
           <span class="text-xs text-slate-500 font-medium">Bấm "Vào Phòng Thi" để bắt đầu làm bài</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5" *ngIf="stats.upcomingExams?.length; else emptyUpcoming">
           <div *ngFor="let ex of stats.upcomingExams"
                class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow flex flex-col justify-between">
             <div>
@@ -122,6 +128,63 @@ import { ToastService } from '../../core/services/toast.service';
             </div>
           </div>
         </div>
+
+        <ng-template #emptyUpcoming>
+          <div class="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+            <i class="fa-solid fa-clipboard-check text-3xl mb-2 text-slate-300"></i>
+            <p class="font-bold text-slate-700">Hiện tại không có bài thi nào đang mở</p>
+            <p class="text-xs text-slate-400 mt-1">Khi giáo viên kích hoạt bài thi mới, đề sẽ hiển thị tại đây.</p>
+          </div>
+        </ng-template>
+      </div>
+
+      <!-- Recent Results Summary Section -->
+      <div class="space-y-4" *ngIf="dashboard() as stats">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold text-slate-900">Kết Quả Bài Thi Gần Đây</h2>
+          <a routerLink="/student/exams" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center">
+            <span>Xem toàn bộ lịch sử thi</span>
+            <i class="fa-solid fa-arrow-right ml-1"></i>
+          </a>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden" *ngIf="stats.recentResults?.length; else emptyResults">
+          <div class="divide-y divide-slate-100">
+            <div *ngFor="let r of stats.recentResults"
+                 class="p-4 sm:px-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="font-bold text-slate-900 text-sm">{{ r.examTitle }}</span>
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">{{ r.subjectName }}</span>
+                </div>
+                <div class="text-xs text-slate-400 mt-1">
+                  Đã nộp bài: {{ r.submittedAtUtc | date:'HH:mm dd/MM/yyyy' }}
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-4">
+                <div class="text-right">
+                  <div class="text-base font-black" [ngClass]="r.isPassed ? 'text-emerald-600' : 'text-rose-600'">
+                    {{ r.score }} / {{ r.maxScore }}
+                  </div>
+                  <span class="text-[11px] font-semibold" [ngClass]="r.isPassed ? 'text-emerald-700' : 'text-rose-700'">
+                    {{ r.isPassed ? 'Đạt' : 'Chưa Đạt' }}
+                  </span>
+                </div>
+                <a [routerLink]="['/exam-result', r.sessionId]"
+                   class="px-3 py-1.5 text-xs font-bold text-brand-600 hover:bg-brand-50 border border-brand-200 rounded-xl transition-colors">
+                  Chi Tiết
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #emptyResults>
+          <div class="p-6 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
+            Bạn chưa có kết quả thi nào. Sau khi hoàn thành bài thi, điểm số sẽ xuất hiện ở đây.
+          </div>
+        </ng-template>
       </div>
 
       <!-- Join Class Modal -->
@@ -138,7 +201,7 @@ import { ToastService } from '../../core/services/toast.service';
             <div>
               <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Nhập Mã Lớp</label>
               <input type="text" [(ngModel)]="classCodeToJoin" name="classCodeToJoin" required
-                     placeholder="Ví dụ: THPT12A1 hoặc DOTNET01"
+                     placeholder="Ví dụ: CLSA1B2C"
                      class="w-full text-sm font-mono uppercase px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-center tracking-wider font-bold" />
               <p class="text-[11px] text-slate-400 mt-1.5 text-center">Xin mã tham gia từ giáo viên phụ trách của bạn.</p>
             </div>

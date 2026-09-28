@@ -16,7 +16,7 @@ services:
     networks:
       - exam249-network
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Test_MatKhau_2026!Aa' -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Test_MatKhau_2026!Aa' -C -Q 'SELECT 1' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

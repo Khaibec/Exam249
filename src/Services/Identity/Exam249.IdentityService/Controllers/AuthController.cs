@@ -3,6 +3,7 @@ using Exam249.IdentityService.Entities;
 using Exam249.Shared.Common.Security;
 using Exam249.Shared.Contracts.Common;
 using Exam249.Shared.Contracts.DTOs;
+using Exam249.Shared.Contracts.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -96,7 +97,8 @@ public class AuthController : ControllerBase
             PasswordHash = PasswordHasher.HashPassword(request.Password),
             FullName = request.FullName.Trim(),
             PhoneNumber = request.PhoneNumber?.Trim() ?? string.Empty,
-            Role = request.Role,
+            // Security Fix (CRIT-01): Public registration must strictly assign Student role
+            Role = UserRole.Student,
             IsActive = true,
             CreatedAtUtc = DateTime.UtcNow
         };

@@ -1,15 +1,14 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { AdminDashboard, ApiResponse, PagedResult, User, UserRole } from '../../core/models/models';
-import { ToastService } from '../../core/services/toast.service';
+import { AdminDashboard, ApiResponse } from '../../core/models/models';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, RouterLink],
   template: `
     <div class="space-y-6">
       
@@ -22,7 +21,7 @@ import { ToastService } from '../../core/services/toast.service';
         <div class="mt-4 sm:mt-0 flex items-center space-x-2">
           <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
             <span class="w-2 h-2 rounded-full bg-purple-500 mr-2 animate-pulse"></span>
-            Super Admin Mode
+            Super Admin Active
           </span>
         </div>
       </div>
@@ -37,7 +36,7 @@ import { ToastService } from '../../core/services/toast.service';
           <div>
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng Người Dùng</span>
             <div class="text-2xl font-black text-slate-900 mt-0.5">{{ stats.totalUsers }}</div>
-            <span class="text-xs text-slate-500 font-medium">{{ stats.totalTeachers }} GV • {{ stats.totalStudents }} HS</span>
+            <span class="text-xs text-slate-500 font-medium">{{ stats.totalTeachers }} Giáo viên • {{ stats.totalStudents }} Học sinh</span>
           </div>
         </div>
 
@@ -46,9 +45,9 @@ import { ToastService } from '../../core/services/toast.service';
             <i class="fa-solid fa-chalkboard"></i>
           </div>
           <div>
-            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Lớp Học</span>
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Lớp Học Hoạt Động</span>
             <div class="text-2xl font-black text-slate-900 mt-0.5">{{ stats.totalClassrooms }}</div>
-            <span class="text-xs text-blue-600 font-medium">Đang hoạt động</span>
+            <span class="text-xs text-blue-600 font-medium">Toàn hệ thống</span>
           </div>
         </div>
 
@@ -59,7 +58,7 @@ import { ToastService } from '../../core/services/toast.service';
           <div>
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Ngân Hàng Câu Hỏi</span>
             <div class="text-2xl font-black text-slate-900 mt-0.5">{{ stats.totalQuestions }}</div>
-            <span class="text-xs text-slate-500 font-medium">Đa dạng 3 định dạng</span>
+            <span class="text-xs text-slate-500 font-medium">{{ stats.totalExams }} kỳ thi đã tạo</span>
           </div>
         </div>
 
@@ -68,7 +67,7 @@ import { ToastService } from '../../core/services/toast.service';
             <i class="fa-solid fa-square-poll-vertical"></i>
           </div>
           <div>
-            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Điểm TB Toàn Trường</span>
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Điểm TB Toàn Hệ Thống</span>
             <div class="text-2xl font-black text-emerald-600 mt-0.5">{{ stats.averageSystemScore }} / 10</div>
             <span class="text-xs text-slate-500 font-medium">{{ stats.totalSubmissions }} lượt thi đã nộp</span>
           </div>
@@ -76,79 +75,131 @@ import { ToastService } from '../../core/services/toast.service';
 
       </div>
 
-      <!-- User Management Section -->
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 class="text-lg font-bold text-slate-900">Danh Sách Người Dùng Hệ Thống</h2>
-            <p class="text-xs text-slate-500">Phân quyền, kích hoạt hoặc khóa tài khoản thành viên.</p>
+      <!-- Quick Shortcuts Section -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <a routerLink="/admin/users"
+           class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:border-brand-300 group flex items-start space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+            <i class="fa-solid fa-users-gear"></i>
           </div>
-          
-          <!-- Filters -->
-          <div class="flex items-center space-x-3">
-            <div class="relative">
-              <input type="text" [(ngModel)]="searchKeyword" (keyup.enter)="loadUsers()"
-                     placeholder="Tìm họ tên, email..."
-                     class="text-xs pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 w-52" />
-              <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-2.5 top-2.5 text-xs"></i>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors">Quản Lý Người Dùng</h3>
+              <i class="fa-solid fa-arrow-right text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all text-xs"></i>
             </div>
-            <select [(ngModel)]="selectedRole" (change)="loadUsers()"
-                    class="text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
-              <option [ngValue]="null">Tất cả vai trò</option>
-              <option [ngValue]="UserRole.Admin">Quản trị viên</option>
-              <option [ngValue]="UserRole.Teacher">Giáo viên</option>
-              <option [ngValue]="UserRole.Student">Học sinh</option>
-            </select>
+            <p class="text-xs text-slate-500 mt-1">Phân quyền, cấp tài khoản giáo viên/học sinh, khóa hoặc mở khóa tài khoản người dùng trong hệ thống.</p>
+            <div class="mt-3 text-xs font-bold text-brand-600 flex items-center">
+              <span>Xem danh sách tài khoản</span>
+            </div>
+          </div>
+        </a>
+
+        <a routerLink="/admin/subjects"
+           class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:border-brand-300 group flex items-start space-x-4">
+          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+            <i class="fa-solid fa-book-bookmark"></i>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors">Quản Lý Môn Học</h3>
+              <i class="fa-solid fa-arrow-right text-slate-400 group-hover:text-brand-600 group-hover:translate-x-1 transition-all text-xs"></i>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">Cấu hình danh mục môn học, mã môn học chuẩn và mô tả để các giáo viên tạo lớp và ngân hàng câu hỏi.</p>
+            <div class="mt-3 text-xs font-bold text-brand-600 flex items-center">
+              <span>Xem danh mục môn học</span>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- System Architecture & Anti-Cheat Status -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        
+        <!-- Left: Microservices Status -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Trạng Thái Cụm Dịch Vụ</h3>
+          
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-700">Identity Service</span>
+              </div>
+              <span class="text-emerald-700 bg-emerald-100 font-semibold px-2 py-0.5 rounded-full text-[10px]">Healthy</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-700">Classroom Service</span>
+              </div>
+              <span class="text-emerald-700 bg-emerald-100 font-semibold px-2 py-0.5 rounded-full text-[10px]">Healthy</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-700">Question Bank & Exam</span>
+              </div>
+              <span class="text-emerald-700 bg-emerald-100 font-semibold px-2 py-0.5 rounded-full text-[10px]">Healthy</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-700">Anti-Cheat Engine (SignalR)</span>
+              </div>
+              <span class="text-emerald-700 bg-emerald-100 font-semibold px-2 py-0.5 rounded-full text-[10px]">Healthy</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="font-bold text-slate-700">Reporting & Analytics</span>
+              </div>
+              <span class="text-emerald-700 bg-emerald-100 font-semibold px-2 py-0.5 rounded-full text-[10px]">Healthy</span>
+            </div>
           </div>
         </div>
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-            <thead class="bg-slate-50 text-xs uppercase font-bold text-slate-500 tracking-wider">
-              <tr>
-                <th class="py-3.5 px-4">Họ và Tên</th>
-                <th class="py-3.5 px-4">Email</th>
-                <th class="py-3.5 px-4">Vai Trò</th>
-                <th class="py-3.5 px-4">Trạng Thái</th>
-                <th class="py-3.5 px-4">Ngày Tạo</th>
-                <th class="py-3.5 px-4 text-right">Thao Tác</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 font-medium">
-              <tr *ngFor="let u of users()" class="hover:bg-slate-50/80 transition-colors">
-                <td class="py-3.5 px-4 font-bold text-slate-900">{{ u.fullName }}</td>
-                <td class="py-3.5 px-4 text-slate-600">{{ u.email }}</td>
-                <td class="py-3.5 px-4">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-                        [ngClass]="{
-                          'bg-purple-100 text-purple-800': u.role === UserRole.Admin,
-                          'bg-blue-100 text-blue-800': u.role === UserRole.Teacher,
-                          'bg-emerald-100 text-emerald-800': u.role === UserRole.Student
-                        }">
-                    {{ getRoleLabel(u.role) }}
-                  </span>
-                </td>
-                <td class="py-3.5 px-4">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-                        [ngClass]="u.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'">
-                    <span class="w-1.5 h-1.5 rounded-full mr-1.5" [ngClass]="u.isActive ? 'bg-emerald-500' : 'bg-rose-500'"></span>
-                    {{ u.isActive ? 'Hoạt động' : 'Đã khóa' }}
-                  </span>
-                </td>
-                <td class="py-3.5 px-4 text-slate-500 text-xs">{{ u.createdAtUtc | date:'dd/MM/yyyy HH:mm' }}</td>
-                <td class="py-3.5 px-4 text-right">
-                  <button (click)="toggleUserStatus(u)"
-                          [disabled]="u.role === UserRole.Admin"
-                          class="px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors border"
-                          [ngClass]="u.isActive ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'">
-                    {{ u.isActive ? 'Khóa' : 'Kích hoạt' }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Right: Recent Activity Audit Logs -->
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Nhật Ký Hoạt Động Hệ Thống Gần Đây</h3>
+              <span class="text-xs text-slate-400 font-medium">Tự động cập nhật</span>
+            </div>
+
+            <div class="space-y-3" *ngIf="dashboard()?.recentActivities?.length; else emptyActivities">
+              <div *ngFor="let act of dashboard()?.recentActivities"
+                   class="flex items-start space-x-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 text-xs">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-900 truncate">{{ act.title }}</span>
+                    <span class="text-[11px] text-slate-400 whitespace-nowrap ml-2">{{ act.timestampUtc | date:'HH:mm dd/MM' }}</span>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5 line-clamp-1">{{ act.description }}</p>
+                </div>
+              </div>
+            </div>
+
+            <ng-template #emptyActivities>
+              <div class="py-8 text-center text-xs text-slate-400">
+                <i class="fa-regular fa-bell text-2xl text-slate-300 mb-2"></i>
+                <p>Chưa có sự kiện nhật ký nào mới phát sinh trong 24 giờ qua.</p>
+              </div>
+            </ng-template>
+          </div>
+
+          <div class="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs text-slate-500">
+            <span>Anti-Cheat AI Analyzer: <strong class="text-emerald-600">Đang trực tuyến</strong></span>
+            <span>Gateway: <strong class="text-slate-700">Yarp Reverse Proxy (Port 5000)</strong></span>
+          </div>
         </div>
+
       </div>
 
     </div>
@@ -156,18 +207,11 @@ import { ToastService } from '../../core/services/toast.service';
 })
 export class AdminDashboardComponent implements OnInit {
   private http = inject(HttpClient);
-  private toast = inject(ToastService);
 
-  UserRole = UserRole;
   dashboard = signal<AdminDashboard | null>(null);
-  users = signal<User[]>([]);
-
-  searchKeyword = '';
-  selectedRole: UserRole | null = null;
 
   ngOnInit(): void {
     this.loadDashboard();
-    this.loadUsers();
   }
 
   loadDashboard(): void {
@@ -178,39 +222,5 @@ export class AdminDashboardComponent implements OnInit {
         }
       }
     });
-  }
-
-  loadUsers(): void {
-    let url = `${environment.apiUrl}/users?pageIndex=1&pageSize=50`;
-    if (this.searchKeyword) url += `&search=${encodeURIComponent(this.searchKeyword)}`;
-    if (this.selectedRole) url += `&role=${this.selectedRole}`;
-
-    this.http.get<ApiResponse<PagedResult<User>>>(url).subscribe({
-      next: res => {
-        if (res.success && res.data) {
-          this.users.set(res.data.items);
-        }
-      }
-    });
-  }
-
-  toggleUserStatus(user: User): void {
-    const newStatus = !user.isActive;
-    this.http.put<ApiResponse>(`${environment.apiUrl}/users/${user.id}/status`, { isActive: newStatus }).subscribe({
-      next: res => {
-        this.toast.success(res.message);
-        this.loadUsers();
-      },
-      error: () => this.toast.error('Không thể cập nhật trạng thái người dùng.')
-    });
-  }
-
-  getRoleLabel(role: UserRole): string {
-    switch (role) {
-      case UserRole.Admin: return 'Admin';
-      case UserRole.Teacher: return 'Giáo viên';
-      case UserRole.Student: return 'Học sinh';
-      default: return 'Khác';
-    }
   }
 }

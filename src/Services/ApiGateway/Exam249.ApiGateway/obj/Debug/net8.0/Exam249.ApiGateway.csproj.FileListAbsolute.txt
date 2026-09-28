@@ -6,6 +6,9 @@ D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8.0\Exam249.ApiGateway.runtimeconfig.json
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8.0\Exam249.ApiGateway.dll
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8.0\Exam249.ApiGateway.pdb
+D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8.0\System.IO.Hashing.dll
+D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8.0\Yarp.ReverseProxy.dll
+D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249.ApiGateway.csproj.AssemblyReference.cache
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\rpswa.dswa.cache.json
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249.ApiGateway.GeneratedMSBuildEditorConfig.editorconfig
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249.ApiGateway.AssemblyInfoInputs.cache
@@ -21,12 +24,9 @@ D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\staticwebassets.development.json
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\staticwebassets.build.endpoints.json
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\swae.build.ex.cache
+D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249..476185F8.Up2Date
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249.ApiGateway.dll
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\refint\Exam249.ApiGateway.dll
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249.ApiGateway.pdb
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249.ApiGateway.genruntimeconfig.cache
 D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\ref\Exam249.ApiGateway.dll
-D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8.0\System.IO.Hashing.dll
-D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\bin\Debug\net8.0\Yarp.ReverseProxy.dll
-D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249.ApiGateway.csproj.AssemblyReference.cache
-D:\cs-Projects\Exam249\src\Services\ApiGateway\Exam249.ApiGateway\obj\Debug\net8.0\Exam249..476185F8.Up2Date

@@ -226,12 +226,19 @@ public class ExamSessionsController : ControllerBase
     [Authorize(Roles = "Student")]
     public async Task<ActionResult<ApiResponse>> Autosave(Guid sessionId, [FromBody] AutosaveAnswersRequest request)
     {
+        var studentIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(studentIdStr, out var currentStudentId);
+
         var session = await _context.ExamSessions
             .Include(s => s.CurrentAnswers)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
 
         if (session == null)
             return NotFound(ApiResponse.Fail("Không tìm thấy phiên thi."));
+
+        // Security Fix (CRIT-02): Verify student ownership to prevent BOLA/IDOR
+        if (session.StudentId != currentStudentId)
+            return Forbid();
 
         if (session.Status != SessionStatus.InProgress)
             return BadRequest(ApiResponse.Fail("Phiên làm bài này đã kết thúc."));
@@ -288,6 +295,10 @@ public class ExamSessionsController : ControllerBase
 
         if (session == null)
             return NotFound(ApiResponse<ExamResultDto>.Fail("Không tìm thấy phiên làm bài."));
+
+        // Security Fix (CRIT-02): Verify student ownership to prevent BOLA/IDOR
+        if (session.StudentId != studentId)
+            return Forbid();
 
         if (session.Status == SessionStatus.Submitted)
         {
@@ -410,6 +421,10 @@ public class ExamSessionsController : ControllerBase
     [HttpGet("sessions/{sessionId:guid}/result")]
     public async Task<ActionResult<ApiResponse<ExamResultDto>>> GetResult(Guid sessionId)
     {
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(currentUserIdStr, out var currentUserId);
+
         var submission = await _context.ExamSubmissions
             .Include(s => s.Details)
             .Include(s => s.ExamSession)
@@ -418,6 +433,10 @@ public class ExamSessionsController : ControllerBase
 
         if (submission == null)
             return NotFound(ApiResponse<ExamResultDto>.Fail("Chưa có kết quả nộp bài cho phiên thi này."));
+
+        // Security Fix (CRIT-02): Only the student who completed the exam or Teacher/Admin can view result
+        if (role == "Student" && submission.StudentId != currentUserId)
+            return Forbid();
 
         var exam = submission.ExamSession.Exam;
 

@@ -50,15 +50,22 @@ public class AntiCheatController : ControllerBase
             Metadata = request.Metadata,
             PenaltyPoints = penalty,
             TimestampUtc = DateTime.UtcNow,
-            IpAddress = request.IpAddress ?? HttpContext.Connection.RemoteIpAddress?.ToString(),
-            UserAgent = request.UserAgent ?? Request.Headers.UserAgent.ToString()
+            // Security Fix (HIGH-03): Prioritize trusted remote IP to prevent client-side spoofing
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? request.IpAddress ?? "unknown",
+            UserAgent = Request.Headers.UserAgent.ToString()
         };
-
-        await _context.ExamViolations.AddAsync(violation);
 
         // Update or create RiskAssessment
         var assessment = await _context.RiskAssessments
             .FirstOrDefaultAsync(r => r.SessionId == request.SessionId);
+
+        // Security Fix (HIGH-03): Prevent framing attack where caller records violations for someone else's session
+        if (assessment != null && assessment.StudentId != studentId)
+        {
+            return Forbid();
+        }
+
+        await _context.ExamViolations.AddAsync(violation);
 
         if (assessment == null)
         {

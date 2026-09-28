@@ -5,12 +5,17 @@ import { authGuard, roleGuard } from './core/guards/auth.guard';
 import { UserRole } from './core/models/models';
 
 import { AdminDashboardComponent } from './features/admin/admin-dashboard.component';
+import { UserManagementComponent } from './features/admin/user-management.component';
+import { SubjectManagementComponent } from './features/admin/subject-management.component';
+
 import { TeacherDashboardComponent } from './features/teacher/teacher-dashboard.component';
 import { ClassroomListComponent } from './features/teacher/classroom-list.component';
 import { QuestionBankComponent } from './features/teacher/question-bank.component';
 import { ExamManagerComponent } from './features/teacher/exam-manager.component';
 
 import { StudentDashboardComponent } from './features/student/student-dashboard.component';
+import { StudentClassesComponent } from './features/student/student-classes.component';
+import { StudentExamsComponent } from './features/student/student-exams.component';
 import { ExamRoomComponent } from './features/student/exam-room.component';
 import { ExamResultComponent } from './features/student/exam-result.component';
 
@@ -40,13 +45,13 @@ export const routes: Routes = [
       },
       {
         path: 'admin/users',
-        component: AdminDashboardComponent,
+        component: UserManagementComponent,
         canActivate: [roleGuard],
         data: { roles: [UserRole.Admin] }
       },
       {
         path: 'admin/subjects',
-        component: AdminDashboardComponent,
+        component: SubjectManagementComponent,
         canActivate: [roleGuard],
         data: { roles: [UserRole.Admin] }
       },
@@ -86,13 +91,13 @@ export const routes: Routes = [
       },
       {
         path: 'student/classes',
-        component: StudentDashboardComponent,
+        component: StudentClassesComponent,
         canActivate: [roleGuard],
         data: { roles: [UserRole.Student] }
       },
       {
         path: 'student/exams',
-        component: StudentDashboardComponent,
+        component: StudentExamsComponent,
         canActivate: [roleGuard],
         data: { roles: [UserRole.Student] }
       },

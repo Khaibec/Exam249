@@ -1,4 +1,3 @@
-
 # Exam249 - Hệ Thống Thi Trực Tuyến & Chấm Điểm Tự Động Chống Gian Lận (Microservices)
 
 Hệ thống thi trực tuyến và chấm điểm tự động hoàn chỉnh, đạt chuẩn **Production-Ready**, xây dựng trên kiến trúc **Microservices** tiên tiến với **ASP.NET Core Web API (.NET 8 LTS)**, Frontend **Angular 19 (Standalone Components, TailwindCSS, 100% Tiếng Việt)**, Cơ sở dữ liệu **Microsoft SQL Server**, cơ chế xác thực **JWT + Refresh Token**, giao tiếp liên dịch vụ qua **YARP Gateway / REST / MassTransit Event Bus**, và hệ thống **Chống Gian Lận (Anti-Cheat) Đa Tầng**.
@@ -50,6 +49,8 @@ Hệ thống thiết kế cơ chế bảo vệ bài thi nhiều lớp chặt ch�
 4. **Đồng Hồ Đếm Ngược Đồng Bộ**: Đếm ngược thời gian thực, cảnh báo màu sắc khi còn < 5 phút (Vàng) và < 1 phút (Đỏ). Tự động submit khi hết giờ.
 5. **Autosave Tự Động**: Lưu định kỳ bài làm ngầm mỗi 15 giây và tức thì khi chọn đáp án, không làm ngắt quãng thao tác.
 6. **Extension Point Proctoring**: Có sẵn hook webcam snapshot định kỳ chụp khung hình thí sinh gửi về backend phục vụ xác thực khuôn mặt.
+
+		
 
 ### B. Tầng Server & Security Validation
 
