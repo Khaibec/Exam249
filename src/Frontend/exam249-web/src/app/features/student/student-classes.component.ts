@@ -149,7 +149,7 @@ import { ToastService } from '../../core/services/toast.service';
             <div *ngFor="let s of classmates()" class="flex items-center justify-between py-2 px-1">
               <div class="flex items-center space-x-3">
                 <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
-                  {{ s.studentName.charAt(0) }}
+                  {{ (s.studentName || 'H').charAt(0) }}
                 </div>
                 <div>
                   <div class="text-xs font-bold text-slate-900">{{ s.studentName }}</div>

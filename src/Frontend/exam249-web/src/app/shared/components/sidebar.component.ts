@@ -17,62 +17,82 @@ import { UserRole } from '../../core/models/models';
           <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider px-3 mb-2">Chức Năng Chính</h3>
           
           <nav class="space-y-1">
-            <!-- ADMIN NAV -->
+            <!-- ADMIN NAV (3 Tabs: Overview, Users, Subjects) -->
             <ng-container *ngIf="authService.isAdmin()">
-              <a routerLink="/admin/dashboard" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/admin/dashboard"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-chart-pie w-6 text-center mr-2"></i>
                 Tổng Quan Admin
               </a>
-              <a routerLink="/admin/users" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/admin/users"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-users-gear w-6 text-center mr-2"></i>
                 Quản Lý Người Dùng
               </a>
-              <a routerLink="/admin/subjects" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/admin/subjects"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-book-bookmark w-6 text-center mr-2"></i>
                 Quản Lý Môn Học
               </a>
             </ng-container>
 
-            <!-- TEACHER NAV -->
+            <!-- TEACHER NAV (4 Tabs: Overview, Classes, Questions, Exams) -->
             <ng-container *ngIf="authService.isTeacher()">
-              <a routerLink="/teacher/dashboard" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/teacher/dashboard"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-chart-line w-6 text-center mr-2"></i>
                 Tổng Quan Lớp Học
               </a>
-              <a routerLink="/teacher/classes" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/teacher/classes"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-chalkboard w-6 text-center mr-2"></i>
                 Quản Lý Lớp Học
               </a>
-              <a routerLink="/teacher/questions" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/teacher/questions"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-layer-group w-6 text-center mr-2"></i>
                 Ngân Hàng Câu Hỏi
               </a>
-              <a routerLink="/teacher/exams" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/teacher/exams"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-file-pen w-6 text-center mr-2"></i>
                 Tạo & Quản Lý Đề Thi
               </a>
             </ng-container>
 
-            <!-- STUDENT NAV -->
+            <!-- STUDENT NAV (3 Tabs: Dashboard, My Classes, Exam History) -->
             <ng-container *ngIf="authService.isStudent()">
-              <a routerLink="/student/dashboard" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/student/dashboard"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-house-chimney w-6 text-center mr-2"></i>
                 Trang Chủ Học Sinh
               </a>
-              <a routerLink="/student/classes" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/student/classes"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-graduation-cap w-6 text-center mr-2"></i>
                 Lớp Học Của Tôi
               </a>
-              <a routerLink="/student/exams" routerLinkActive="bg-brand-600 text-white font-semibold"
+              <a routerLink="/student/exams"
+                 routerLinkActive="bg-brand-600 text-white font-semibold"
+                 [routerLinkActiveOptions]="{ exact: true }"
                  class="flex items-center px-3 py-2.5 text-sm rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
                 <i class="fa-solid fa-clock-rotate-left w-6 text-center mr-2"></i>
                 Lịch Sử Bài Thi

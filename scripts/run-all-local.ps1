@@ -22,7 +22,7 @@ foreach ($svc in $services) {
 }
 
 Write-Host "Dang khoi chay Frontend Angular tai http://localhost:4200..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$baseDir\src\Frontend\exam249-web`"; npm start"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "if (Get-Command nvm -ErrorAction SilentlyContinue) { nvm use 24.21.0 }; cd `"$baseDir\src\Frontend\exam249-web`"; npm start"
 
 Write-Host ""
 Write-Host "Tat ca cac service da duoc khoi dong!" -ForegroundColor Green

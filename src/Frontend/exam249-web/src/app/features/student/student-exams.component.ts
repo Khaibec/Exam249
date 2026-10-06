@@ -120,7 +120,7 @@ interface MyExamHistoryItem {
                 <tr *ngFor="let item of filteredHistory()" class="hover:bg-slate-50/80 transition-colors">
                   <td class="py-3.5 px-4">
                     <span class="font-bold text-slate-900 block">{{ item.examTitle }}</span>
-                    <span class="text-xs text-slate-400">Mã phiên: {{ item.sessionId.slice(0, 8) }}...</span>
+                    <span class="text-xs text-slate-400">Mã phiên: {{ (item.sessionId || '').slice(0, 8) }}...</span>
                   </td>
                   <td class="py-3.5 px-4">
                     <span class="text-xs font-semibold px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700">
@@ -260,7 +260,7 @@ export class StudentExamsComponent implements OnInit {
         if (res.success && res.data) {
           const now = new Date();
           // Filter exams that are published and within time window
-          const openList = res.data.filter(e => {
+          const openList = (res.data || []).filter(e => {
             const end = new Date(e.endTimeUtc);
             return e.status === ExamStatus.Published && end >= now;
           });

@@ -76,7 +76,7 @@ import { ToastService } from '../../core/services/toast.service';
                            'bg-blue-100 text-blue-700': u.role === UserRole.Teacher,
                            'bg-emerald-100 text-emerald-700': u.role === UserRole.Student
                          }">
-                      {{ u.fullName.charAt(0) }}
+                      {{ (u.fullName || 'U').charAt(0) }}
                     </div>
                     <span class="font-bold text-slate-900">{{ u.fullName }}</span>
                   </div>

@@ -15,9 +15,18 @@ export class AuthService {
   token = signal<string | null>(null);
 
   isAuthenticated = computed(() => !!this.currentUser() && !!this.token());
-  isAdmin = computed(() => this.currentUser()?.role === UserRole.Admin);
-  isTeacher = computed(() => this.currentUser()?.role === UserRole.Teacher);
-  isStudent = computed(() => this.currentUser()?.role === UserRole.Student);
+  isAdmin = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === UserRole.Admin || Number(r) === UserRole.Admin || (r as any) === 'Admin';
+  });
+  isTeacher = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === UserRole.Teacher || Number(r) === UserRole.Teacher || (r as any) === 'Teacher';
+  });
+  isStudent = computed(() => {
+    const r = this.currentUser()?.role;
+    return r === UserRole.Student || Number(r) === UserRole.Student || (r as any) === 'Student';
+  });
 
   constructor(private http: HttpClient, private router: Router) {
     this.loadStoredAuth();
