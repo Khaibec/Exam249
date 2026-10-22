@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using Exam249.ExamService.Services;
+
 namespace Exam249.ExamService.Controllers;
 
 [ApiController]
@@ -16,10 +18,17 @@ namespace Exam249.ExamService.Controllers;
 public class ExamsController : ControllerBase
 {
     private readonly ExamDbContext _context;
+    private readonly AntiCheatClient _antiCheatClient;
+    private readonly ClassroomClient _classroomClient;
 
-    public ExamsController(ExamDbContext context)
+    public ExamsController(
+        ExamDbContext context,
+        AntiCheatClient antiCheatClient,
+        ClassroomClient classroomClient)
     {
         _context = context;
+        _antiCheatClient = antiCheatClient;
+        _classroomClient = classroomClient;
     }
 
     [HttpGet]
@@ -36,6 +45,11 @@ public class ExamsController : ControllerBase
         if (role == "Teacher")
         {
             query = query.Where(e => e.TeacherId == userId);
+        }
+        else if (role == "Student")
+        {
+            var enrolledClassIds = await _classroomClient.GetStudentEnrolledClassroomIdsAsync(userId);
+            query = query.Where(e => enrolledClassIds.Contains(e.ClassroomId));
         }
 
         if (classroomId.HasValue)
@@ -279,6 +293,24 @@ public class ExamsController : ControllerBase
                 ViolationsCount = 0
             })
             .ToListAsync();
+
+        // Enrich with real-time Anti-Cheat risk metrics and violation counts
+        var sessionIds = submissions.Select(s => s.SessionId).ToList();
+        if (sessionIds.Any())
+        {
+            var summaries = await _antiCheatClient.GetBatchSessionSummariesAsync(sessionIds);
+            var summaryMap = summaries.ToDictionary(s => s.SessionId);
+
+            foreach (var sub in submissions)
+            {
+                if (summaryMap.TryGetValue(sub.SessionId, out var risk))
+                {
+                    sub.RiskScore = risk.TotalRiskScore;
+                    sub.RiskLevel = risk.RiskLevel;
+                    sub.ViolationsCount = risk.ViolationsCount;
+                }
+            }
+        }
 
         return Ok(ApiResponse<List<TeacherExamSubmissionListItemDto>>.Ok(submissions));
     }

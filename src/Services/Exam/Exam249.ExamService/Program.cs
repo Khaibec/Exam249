@@ -20,6 +20,8 @@ builder.Services.AddDbContext<ExamDbContext>(options =>
 });
 
 builder.Services.AddHttpClient<QuestionBankClient>();
+builder.Services.AddHttpClient<AntiCheatClient>();
+builder.Services.AddHttpClient<ClassroomClient>();
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedEventBus(builder.Configuration);
 

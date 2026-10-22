@@ -27,4 +27,7 @@
   <Folder Name="/src/Services/Reporting/">
     <Project Path="src/Services/Reporting/Exam249.ReportingService/Exam249.ReportingService.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Exam249.UnitTests/Exam249.UnitTests.csproj" />
+  </Folder>
 </Solution>

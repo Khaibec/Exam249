@@ -1,11 +1,13 @@
 using Exam249.QuestionBankService.Data;
 using Exam249.QuestionBankService.Entities;
+using Exam249.Shared.Common.Security;
 using Exam249.Shared.Contracts.Common;
 using Exam249.Shared.Contracts.DTOs;
 using Exam249.Shared.Contracts.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Exam249.QuestionBankService.Controllers;
 
@@ -15,10 +17,12 @@ namespace Exam249.QuestionBankService.Controllers;
 public class QuestionsController : ControllerBase
 {
     private readonly QuestionBankDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public QuestionsController(QuestionBankDbContext context)
+    public QuestionsController(QuestionBankDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -266,9 +270,18 @@ public class QuestionsController : ControllerBase
     /// Endpoint nội bộ cho ExamService lấy chi tiết danh sách câu hỏi kèm đáp án để chấm điểm
     /// </summary>
     [HttpPost("batch-get")]
-    [AllowAnonymous] // Inter-service communication via API Gateway or direct internal network
+    [AllowAnonymous] // Inter-service communication via internal network with secret or privileged role
     public async Task<ActionResult<ApiResponse<List<QuestionDto>>>> BatchGetQuestions([FromBody] List<Guid> questionIds)
     {
+        // Must either be a valid internal service call with secret header OR have Teacher/Admin role
+        var isInternal = InternalSecurityConstants.IsValidInternalRequest(Request, _configuration);
+        var isPrivilegedUser = User.IsInRole("Teacher") || User.IsInRole("Admin");
+
+        if (!isInternal && !isPrivilegedUser)
+        {
+            return Forbid();
+        }
+
         var questions = await _context.Questions
             .Include(q => q.Options)
             .Include(q => q.AcceptedAnswers)

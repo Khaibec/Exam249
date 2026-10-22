@@ -1,3 +1,4 @@
+using Exam249.AntiCheatService.Consumers;
 using Exam249.AntiCheatService.Data;
 using Exam249.Shared.Common.Middleware;
 using Exam249.Shared.Common.Security;
@@ -19,7 +20,10 @@ builder.Services.AddDbContext<AntiCheatDbContext>(options =>
 });
 
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
-builder.Services.AddSharedEventBus(builder.Configuration);
+builder.Services.AddSharedEventBus(builder.Configuration, x =>
+{
+    x.AddConsumer<ExamSessionStartedConsumer>();
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

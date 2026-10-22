@@ -21,17 +21,23 @@ public class ExamSessionsController : ControllerBase
 {
     private readonly ExamDbContext _context;
     private readonly QuestionBankClient _bankClient;
+    private readonly AntiCheatClient _antiCheatClient;
+    private readonly ClassroomClient _classroomClient;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ExamSessionsController> _logger;
 
     public ExamSessionsController(
         ExamDbContext context,
         QuestionBankClient bankClient,
+        AntiCheatClient antiCheatClient,
+        ClassroomClient classroomClient,
         IPublishEndpoint publishEndpoint,
         ILogger<ExamSessionsController> logger)
     {
         _context = context;
         _bankClient = bankClient;
+        _antiCheatClient = antiCheatClient;
+        _classroomClient = classroomClient;
         _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
@@ -54,6 +60,13 @@ public class ExamSessionsController : ControllerBase
 
         if (exam.Status != ExamStatus.Published)
             return BadRequest(ApiResponse<StudentExamViewDto>.Fail("Kỳ thi hiện chưa được mở."));
+
+        // Verify that the student is actually enrolled in this exam's classroom
+        var isEnrolled = await _classroomClient.IsStudentEnrolledAsync(exam.ClassroomId, studentId);
+        if (!isEnrolled)
+        {
+            return BadRequest(ApiResponse<StudentExamViewDto>.Fail($"Bạn chưa tham gia lớp học '{exam.ClassroomName}'. Vui lòng nhập mã lớp để tham gia trước khi làm bài thi."));
+        }
 
         var now = DateTime.UtcNow;
         if (now < exam.StartTimeUtc)
@@ -320,11 +333,18 @@ public class ExamSessionsController : ControllerBase
         var isPassed = totalScore >= exam.PassingScore;
         var durationSeconds = (int)(submittedAt - session.StartedAtUtc).TotalSeconds;
 
+        // Fetch live risk assessment from AntiCheatService
+        var riskSummary = await _antiCheatClient.GetSessionSummaryAsync(session.Id);
+        var finalRiskScore = riskSummary?.TotalRiskScore ?? session.RiskScore;
+        var finalRiskLevel = riskSummary?.RiskLevel ?? session.RiskLevel;
+
         session.Status = SessionStatus.Submitted;
         session.SubmittedAtUtc = submittedAt;
         session.TotalScore = totalScore;
         session.MaxScore = maxScore;
         session.IsPassed = isPassed;
+        session.RiskScore = finalRiskScore;
+        session.RiskLevel = finalRiskLevel;
 
         var submission = new ExamSubmission
         {
@@ -339,8 +359,8 @@ public class ExamSessionsController : ControllerBase
             MaxScore = maxScore,
             ScorePercentage = scorePercentage,
             IsPassed = isPassed,
-            RiskScore = session.RiskScore,
-            RiskLevel = session.RiskLevel,
+            RiskScore = finalRiskScore,
+            RiskLevel = finalRiskLevel,
             CreatedAtUtc = DateTime.UtcNow
         };
 

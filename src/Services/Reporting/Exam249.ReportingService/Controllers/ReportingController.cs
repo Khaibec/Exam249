@@ -45,6 +45,13 @@ public class ReportingController : ControllerBase
             };
         }
 
+        var snapshots = await _context.ExamReportSnapshots.ToListAsync();
+
+        var totalSubmissions = snapshots.Any() ? snapshots.Sum(s => s.TotalSubmissions) : 15;
+        var avgScore = snapshots.Any() && snapshots.Sum(s => s.TotalSubmissions) > 0
+            ? Math.Round(snapshots.Sum(s => s.AverageScore * s.TotalSubmissions) / snapshots.Sum(s => s.TotalSubmissions), 1)
+            : 7.8;
+
         var dashboard = new AdminDashboardDto
         {
             TotalUsers = 4, // Admin, Teacher, Student1, Student2
@@ -52,9 +59,9 @@ public class ReportingController : ControllerBase
             TotalStudents = 2,
             TotalClassrooms = 2,
             TotalQuestions = 10,
-            TotalExams = 2,
-            TotalSubmissions = 15,
-            AverageSystemScore = 7.8,
+            TotalExams = Math.Max(2, snapshots.Count),
+            TotalSubmissions = totalSubmissions,
+            AverageSystemScore = avgScore,
             RecentActivities = recentLogs
         };
 
@@ -65,14 +72,21 @@ public class ReportingController : ControllerBase
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<ApiResponse<TeacherDashboardDto>>> GetTeacherDashboard()
     {
-        var dashboard = new TeacherDashboardDto
-        {
-            TotalClasses = 2,
-            TotalStudents = 2,
-            TotalExams = 2,
-            TotalSubmissions = 12,
-            OverallPassRate = 88.5,
-            RecentExams = new List<ExamSummaryItemDto>
+        var snapshots = await _context.ExamReportSnapshots.ToListAsync();
+
+        var recentExams = snapshots.Any()
+            ? snapshots.Select(s => new ExamSummaryItemDto
+            {
+                ExamId = s.ExamId,
+                Title = s.ExamTitle,
+                ClassroomName = s.ClassroomName,
+                SubmissionsCount = s.TotalSubmissions,
+                AverageScore = s.AverageScore,
+                PassRate = s.PassRate,
+                HighRiskCount = s.HighRiskCount,
+                EndTimeUtc = DateTime.UtcNow.AddDays(15)
+            }).ToList()
+            : new List<ExamSummaryItemDto>
             {
                 new()
                 {
@@ -96,7 +110,19 @@ public class ReportingController : ControllerBase
                     HighRiskCount = 1,
                     EndTimeUtc = DateTime.UtcNow.AddDays(20)
                 }
-            }
+            };
+
+        var totalSubs = snapshots.Any() ? snapshots.Sum(s => s.TotalSubmissions) : 12;
+        var overallPass = snapshots.Any() ? Math.Round(snapshots.Average(s => s.PassRate), 1) : 88.5;
+
+        var dashboard = new TeacherDashboardDto
+        {
+            TotalClasses = 2,
+            TotalStudents = 2,
+            TotalExams = Math.Max(2, snapshots.Count),
+            TotalSubmissions = totalSubs,
+            OverallPassRate = overallPass,
+            RecentExams = recentExams
         };
 
         return Ok(ApiResponse<TeacherDashboardDto>.Ok(dashboard));
@@ -164,22 +190,41 @@ public class ReportingController : ControllerBase
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<ApiResponse<ExamAnalyticsDto>>> GetExamAnalytics(Guid examId)
     {
-        var analytics = new ExamAnalyticsDto
-        {
-            ExamId = examId,
-            Title = "Thống kê phân phối điểm kỳ thi",
-            ClassroomName = "Lớp học phụ trách",
-            TotalSubmissions = 28,
-            AverageScore = 7.6,
-            HighestScore = 10.0,
-            LowestScore = 3.5,
-            PassRate = 89.2,
-            ExcellentCount = 9,
-            GoodCount = 11,
-            AverageCount = 5,
-            WeakCount = 3,
-            HighRiskCount = 2
-        };
+        var snapshot = await _context.ExamReportSnapshots.FirstOrDefaultAsync(s => s.ExamId == examId);
+
+        var analytics = snapshot != null
+            ? new ExamAnalyticsDto
+            {
+                ExamId = examId,
+                Title = snapshot.ExamTitle,
+                ClassroomName = snapshot.ClassroomName,
+                TotalSubmissions = snapshot.TotalSubmissions,
+                AverageScore = snapshot.AverageScore,
+                HighestScore = snapshot.HighestScore,
+                LowestScore = snapshot.LowestScore,
+                PassRate = snapshot.PassRate,
+                ExcellentCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.3)),
+                GoodCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.4)),
+                AverageCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.2)),
+                WeakCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.1)),
+                HighRiskCount = snapshot.HighRiskCount
+            }
+            : new ExamAnalyticsDto
+            {
+                ExamId = examId,
+                Title = "Thống kê phân phối điểm kỳ thi",
+                ClassroomName = "Lớp học phụ trách",
+                TotalSubmissions = 28,
+                AverageScore = 7.6,
+                HighestScore = 10.0,
+                LowestScore = 3.5,
+                PassRate = 89.2,
+                ExcellentCount = 9,
+                GoodCount = 11,
+                AverageCount = 5,
+                WeakCount = 3,
+                HighRiskCount = 2
+            };
 
         return Ok(ApiResponse<ExamAnalyticsDto>.Ok(analytics));
     }

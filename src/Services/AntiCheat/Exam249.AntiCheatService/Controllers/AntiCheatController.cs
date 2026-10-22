@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Exam249.AntiCheatService.Data;
 using Exam249.AntiCheatService.Entities;
+using Exam249.Shared.Common.Security;
 using Exam249.Shared.Common.Utilities;
 using Exam249.Shared.Contracts.Common;
 using Exam249.Shared.Contracts.DTOs;
@@ -10,6 +11,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Exam249.AntiCheatService.Controllers;
 
@@ -20,15 +22,18 @@ public class AntiCheatController : ControllerBase
 {
     private readonly AntiCheatDbContext _context;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<AntiCheatController> _logger;
 
     public AntiCheatController(
         AntiCheatDbContext context,
         IPublishEndpoint publishEndpoint,
+        IConfiguration configuration,
         ILogger<AntiCheatController> logger)
     {
         _context = context;
         _publishEndpoint = publishEndpoint;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -113,10 +118,41 @@ public class AntiCheatController : ControllerBase
     }
 
     [HttpGet("sessions/{sessionId:guid}/summary")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<RiskScoreSummaryDto>>> GetSessionSummary(Guid sessionId)
     {
+        var isInternal = InternalSecurityConstants.IsValidInternalRequest(Request, _configuration);
+        var isAuthenticated = User.Identity?.IsAuthenticated == true;
+
+        if (!isInternal && !isAuthenticated)
+        {
+            return Unauthorized(ApiResponse<RiskScoreSummaryDto>.Fail("Yêu cầu không được ủy quyền."));
+        }
+
         var summary = await BuildSummary(sessionId);
         return Ok(ApiResponse<RiskScoreSummaryDto>.Ok(summary));
+    }
+
+    [HttpPost("sessions/batch-summary")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<List<RiskScoreSummaryDto>>>> GetBatchSessionSummaries([FromBody] List<Guid> sessionIds)
+    {
+        var isInternal = InternalSecurityConstants.IsValidInternalRequest(Request, _configuration);
+        var isPrivileged = User.IsInRole("Teacher") || User.IsInRole("Admin");
+
+        if (!isInternal && !isPrivileged)
+        {
+            return Forbid();
+        }
+
+        var results = new List<RiskScoreSummaryDto>();
+        foreach (var sid in sessionIds)
+        {
+            var summary = await BuildSummary(sid);
+            results.Add(summary);
+        }
+
+        return Ok(ApiResponse<List<RiskScoreSummaryDto>>.Ok(results));
     }
 
     [HttpGet("sessions/{sessionId:guid}/violations")]
@@ -149,11 +185,42 @@ public class AntiCheatController : ControllerBase
         var studentIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         Guid.TryParse(studentIdStr, out var studentId);
 
+        string imageStoragePath = request.Base64Image;
+
+        // Optimize database storage: Persist snapshot image to file disk if base64 format is provided
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(request.Base64Image) && request.Base64Image.StartsWith("data:image"))
+            {
+                var base64Part = request.Base64Image;
+                var commaIndex = base64Part.IndexOf(',');
+                if (commaIndex >= 0)
+                {
+                    base64Part = base64Part.Substring(commaIndex + 1);
+                }
+
+                var imageBytes = Convert.FromBase64String(base64Part);
+                var storageFolder = Path.Combine(Directory.GetCurrentDirectory(), "Storage", "Snapshots", sessionId.ToString());
+                Directory.CreateDirectory(storageFolder);
+
+                var fileName = $"{Guid.NewGuid():N}.jpg";
+                var fullPath = Path.Combine(storageFolder, fileName);
+                await System.IO.File.WriteAllBytesAsync(fullPath, imageBytes);
+
+                // Store relative URL instead of massive base64 blob
+                imageStoragePath = $"/api/anticheat/sessions/{sessionId}/snapshots/image/{fileName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not write snapshot to disk. Falling back to inline string.");
+        }
+
         var snapshot = new ProctoringSnapshot
         {
             SessionId = sessionId,
             StudentId = studentId,
-            ImageData = request.Base64Image,
+            ImageData = imageStoragePath,
             TriggerReason = request.TriggerReason,
             TimestampUtc = DateTime.UtcNow
         };
@@ -162,6 +229,20 @@ public class AntiCheatController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(ApiResponse.Ok("Lưu ảnh giám sát thành công."));
+    }
+
+    [HttpGet("sessions/{sessionId:guid}/snapshots/image/{fileName}")]
+    [AllowAnonymous]
+    public IActionResult GetSnapshotImageFile(Guid sessionId, string fileName)
+    {
+        // Prevent path traversal
+        var safeFileName = Path.GetFileName(fileName);
+        var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "Storage", "Snapshots", sessionId.ToString(), safeFileName);
+
+        if (!System.IO.File.Exists(fullPath))
+            return NotFound();
+
+        return PhysicalFile(fullPath, "image/jpeg");
     }
 
     [HttpGet("sessions/{sessionId:guid}/snapshots")]

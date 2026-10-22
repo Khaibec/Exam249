@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using Exam249.Shared.Common.Security;
+using Microsoft.Extensions.Configuration;
+
 namespace Exam249.ClassroomService.Controllers;
 
 [ApiController]
@@ -15,10 +18,12 @@ namespace Exam249.ClassroomService.Controllers;
 public class ClassroomsController : ControllerBase
 {
     private readonly ClassroomDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public ClassroomsController(ClassroomDbContext context)
+    public ClassroomsController(ClassroomDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -230,5 +235,48 @@ public class ClassroomsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(ApiResponse.Ok("Đã xóa học sinh khỏi lớp học."));
+    }
+
+    [HttpGet("my-enrolled-ids")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<List<Guid>>>> GetEnrolledClassroomIds([FromQuery] Guid? studentId = null)
+    {
+        var isInternal = InternalSecurityConstants.IsValidInternalRequest(Request, _configuration);
+        var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(currentUserIdStr, out var currentUserId);
+
+        var targetStudentId = (isInternal && studentId.HasValue) ? studentId.Value : currentUserId;
+
+        if (targetStudentId == Guid.Empty)
+        {
+            return Unauthorized(ApiResponse<List<Guid>>.Fail("Không thể xác định học sinh."));
+        }
+
+        var classIds = await _context.ClassroomStudents
+            .Where(cs => cs.StudentId == targetStudentId)
+            .Select(cs => cs.ClassroomId)
+            .ToListAsync();
+
+        return Ok(ApiResponse<List<Guid>>.Ok(classIds));
+    }
+
+    [HttpGet("{id:guid}/is-enrolled")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<bool>>> CheckStudentEnrolled(Guid id, [FromQuery] Guid studentId)
+    {
+        var isInternal = InternalSecurityConstants.IsValidInternalRequest(Request, _configuration);
+        var isPrivileged = User.IsInRole("Teacher") || User.IsInRole("Admin");
+        var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(currentUserIdStr, out var currentUserId);
+
+        if (!isInternal && !isPrivileged && currentUserId != studentId)
+        {
+            return Forbid();
+        }
+
+        var isEnrolled = await _context.ClassroomStudents
+            .AnyAsync(cs => cs.ClassroomId == id && cs.StudentId == studentId);
+
+        return Ok(ApiResponse<bool>.Ok(isEnrolled));
     }
 }

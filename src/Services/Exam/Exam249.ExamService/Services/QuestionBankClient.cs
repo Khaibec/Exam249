@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Exam249.Shared.Common.Security;
 using Exam249.Shared.Contracts.Common;
 using Exam249.Shared.Contracts.DTOs;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +18,12 @@ public class QuestionBankClient
         _logger = logger;
         var baseUrl = configuration["Services:QuestionBankUrl"] ?? "http://localhost:5003";
         _httpClient.BaseAddress = new Uri(baseUrl);
+
+        var internalSecret = configuration["InternalSecurity:SecretKey"] ?? InternalSecurityConstants.DefaultSecretKey;
+        if (!_httpClient.DefaultRequestHeaders.Contains(InternalSecurityConstants.HeaderName))
+        {
+            _httpClient.DefaultRequestHeaders.Add(InternalSecurityConstants.HeaderName, internalSecret);
+        }
     }
 
     public async Task<List<QuestionDto>> BatchGetQuestionsAsync(List<Guid> questionIds)

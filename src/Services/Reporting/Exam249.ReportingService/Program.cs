@@ -1,3 +1,4 @@
+using Exam249.ReportingService.Consumers;
 using Exam249.ReportingService.Data;
 using Exam249.Shared.Common.Middleware;
 using Exam249.Shared.Common.Security;
@@ -19,7 +20,10 @@ builder.Services.AddDbContext<ReportingDbContext>(options =>
 });
 
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
-builder.Services.AddSharedEventBus(builder.Configuration);
+builder.Services.AddSharedEventBus(builder.Configuration, x =>
+{
+    x.AddConsumer<ExamSubmittedConsumer>();
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
