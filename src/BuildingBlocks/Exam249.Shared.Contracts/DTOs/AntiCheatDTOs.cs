@@ -5,11 +5,17 @@ namespace Exam249.Shared.Contracts.DTOs;
 public class RecordViolationRequest
 {
     public Guid SessionId { get; set; }
+    public Guid? ExamId { get; set; }
     public ViolationType Type { get; set; }
     public string? Description { get; set; }
     public string? Metadata { get; set; } // JSON or key-value details e.g. "duration: 4.2s"
     public string? UserAgent { get; set; }
     public string? IpAddress { get; set; }
+}
+
+public class InternalViolationRequest : RecordViolationRequest
+{
+    public Guid StudentId { get; set; }
 }
 
 public class ViolationEventDto
@@ -28,6 +34,7 @@ public class ViolationEventDto
 public class RiskScoreSummaryDto
 {
     public Guid SessionId { get; set; }
+    public Guid? ExamId { get; set; }
     public int TotalRiskScore { get; set; } // 0 - 100
     public RiskLevel RiskLevel { get; set; }
     public int ViolationsCount { get; set; }
@@ -46,6 +53,7 @@ public class ViolationBreakdownItem
 public class ProctoringSnapshotRequest
 {
     public Guid SessionId { get; set; }
+    public Guid? ExamId { get; set; }
     public string Base64Image { get; set; } = string.Empty;
     public string TriggerReason { get; set; } = "Periodic"; // Periodic, TabSwitch, SuspiciousAction
 }
@@ -57,4 +65,39 @@ public class ProctoringSnapshotDto
     public string ImageUrl { get; set; } = string.Empty;
     public string TriggerReason { get; set; } = string.Empty;
     public DateTime TimestampUtc { get; set; }
+}
+
+public class InitLiveSessionRequest
+{
+    public Guid SessionId { get; set; }
+    public Guid ExamId { get; set; }
+    public Guid StudentId { get; set; }
+    public string StudentName { get; set; } = string.Empty;
+    public string StudentEmail { get; set; } = string.Empty;
+    public string ExamVariantCode { get; set; } = "101";
+    public DateTime StartedAtUtc { get; set; }
+    public DateTime DeadlineUtc { get; set; }
+    public int TotalQuestions { get; set; }
+}
+
+public class LiveSessionMonitorDto
+{
+    public Guid SessionId { get; set; }
+    public Guid ExamId { get; set; }
+    public Guid StudentId { get; set; }
+    public string StudentName { get; set; } = string.Empty;
+    public string StudentEmail { get; set; } = string.Empty;
+    public string ExamVariantCode { get; set; } = "101";
+    public DateTime StartedAtUtc { get; set; }
+    public DateTime DeadlineUtc { get; set; }
+    public SessionStatus Status { get; set; } = SessionStatus.InProgress;
+    public int AnsweredCount { get; set; }
+    public int TotalQuestions { get; set; }
+    public int TotalRiskScore { get; set; }
+    public RiskLevel RiskLevel { get; set; } = RiskLevel.Safe;
+    public int ViolationsCount { get; set; }
+    public string? LatestSnapshotUrl { get; set; }
+    public bool WebcamActive { get; set; }
+    public DateTime LastHeartbeatUtc { get; set; } = DateTime.UtcNow;
+    public bool IsOnline { get; set; } = true;
 }

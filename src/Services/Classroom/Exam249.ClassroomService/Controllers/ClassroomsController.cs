@@ -68,8 +68,15 @@ public class ClassroomsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<ClassroomDto>>> GetClassroomById(Guid id)
     {
+        var isInternal = InternalSecurityConstants.IsValidInternalRequest(Request, _configuration);
+        if (!isInternal && User.Identity?.IsAuthenticated != true)
+        {
+            return Unauthorized(ApiResponse<ClassroomDto>.Fail("Yêu cầu không được ủy quyền."));
+        }
+
         var c = await _context.Classrooms
             .Include(x => x.Subject)
             .Include(x => x.Students)
@@ -278,5 +285,36 @@ public class ClassroomsController : ControllerBase
             .AnyAsync(cs => cs.ClassroomId == id && cs.StudentId == studentId);
 
         return Ok(ApiResponse<bool>.Ok(isEnrolled));
+    }
+
+    [HttpGet("internal/stats")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<ClassroomStatsDto>>> GetInternalStats([FromQuery] Guid? teacherId = null)
+    {
+        if (!InternalSecurityConstants.IsValidInternalRequest(Request, _configuration))
+        {
+            return Forbid();
+        }
+
+        var classQuery = _context.Classrooms.Where(c => !c.IsDeleted);
+        if (teacherId.HasValue)
+        {
+            classQuery = classQuery.Where(c => c.TeacherId == teacherId.Value);
+        }
+
+        var classIds = await classQuery.Select(c => c.Id).ToListAsync();
+        var distinctStudents = await _context.ClassroomStudents
+            .Where(cs => classIds.Contains(cs.ClassroomId))
+            .Select(cs => cs.StudentId)
+            .Distinct()
+            .CountAsync();
+
+        var stats = new ClassroomStatsDto
+        {
+            TotalClassrooms = classIds.Count,
+            TotalStudents = distinctStudents
+        };
+
+        return Ok(ApiResponse<ClassroomStatsDto>.Ok(stats));
     }
 }

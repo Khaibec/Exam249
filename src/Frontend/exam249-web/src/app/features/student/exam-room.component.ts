@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
 import { ApiResponse, ExamResult, QuestionType, StudentAnswerItem, StudentExamView, StudentQuestion, ViolationType } from '../../core/models/models';
 import { AntiCheatService } from '../../core/services/anticheat.service';
+import { ProctoringSignalRService } from '../../core/services/proctoring-signalr.service';
 import { ToastService } from '../../core/services/toast.service';
 
 @Component({
@@ -36,6 +37,13 @@ import { ToastService } from '../../core/services/toast.service';
 
         <!-- Center: COUNTDOWN TIMER & AUTOSAVE STATUS -->
         <div class="flex items-center space-x-4">
+          <!-- SignalR Live Status -->
+          <div class="hidden md:flex items-center space-x-1.5 text-[11px] text-slate-400">
+            <span class="w-2 h-2 rounded-full"
+                  [ngClass]="signalR.connectionState() === 'connected' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'"></span>
+            <span>{{ signalR.connectionState() === 'connected' ? 'Giám sát trực tuyến' : 'Đang kết nối...' }}</span>
+          </div>
+
           <!-- Autosave status -->
           <div class="hidden sm:flex items-center space-x-1.5 text-xs text-slate-400">
             <span class="w-2 h-2 rounded-full" [ngClass]="isAutosaving() ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'"></span>
@@ -56,8 +64,6 @@ import { ToastService } from '../../core/services/toast.service';
 
         <!-- Right: Anti-Cheat Violations Badge & Submit Button -->
         <div class="flex items-center space-x-3">
-          
-          <!-- Anti-Cheat Status Badge -->
           <div class="hidden md:flex items-center space-x-2 px-3 py-1 rounded-xl bg-slate-900/80 border border-slate-700 text-xs">
             <i class="fa-solid fa-shield-halved text-emerald-400"></i>
             <span class="text-slate-400">Vi phạm:</span>
@@ -66,9 +72,9 @@ import { ToastService } from '../../core/services/toast.service';
             </span>
           </div>
 
-          <!-- Submit Button -->
           <button (click)="openSubmitConfirmModal()"
-                  class="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center">
+                  [disabled]="!!disqualifiedReason()"
+                  class="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center">
             <i class="fa-solid fa-paper-plane mr-2"></i>
             Nộp Bài Thi
           </button>
@@ -175,8 +181,8 @@ import { ToastService } from '../../core/services/toast.service';
 
         </div>
 
-        <!-- RIGHT: QUESTION PALETTE SIDEBAR (Column 4) -->
-        <div class="bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-700/60 p-5 shadow-xl flex flex-col justify-between">
+        <!-- RIGHT: QUESTION PALETTE & WEBCAM SIDEBAR (Column 4) -->
+        <div class="bg-slate-800/60 backdrop-blur-md rounded-2xl border border-slate-700/60 p-5 shadow-xl flex flex-col justify-between space-y-5">
           <div>
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 pb-3 border-b border-slate-700">
               Bảng Câu Hỏi (Palette)
@@ -203,7 +209,7 @@ import { ToastService } from '../../core/services/toast.service';
             </div>
 
             <!-- Numbers Grid -->
-            <div class="grid grid-cols-5 gap-2 mt-2 max-h-72 overflow-y-auto pr-1">
+            <div class="grid grid-cols-5 gap-2 mt-2 max-h-64 overflow-y-auto pr-1">
               <button *ngFor="let q of view.questions; let i = index"
                       (click)="goToQuestion(i)"
                       class="h-9 rounded-xl text-xs font-bold flex items-center justify-center transition-all relative"
@@ -219,12 +225,31 @@ import { ToastService } from '../../core/services/toast.service';
             </div>
           </div>
 
-          <!-- Bottom Proctoring Extension Hook Preview -->
-          <div class="mt-6 pt-4 border-t border-slate-700">
-            <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-700/60 text-center">
-              <i class="fa-solid fa-camera text-slate-500 text-lg mb-1 block"></i>
-              <span class="text-[11px] font-semibold text-slate-300 block">Proctoring Snapshot Hook</span>
-              <span class="text-[10px] text-slate-500">Sẵn sàng tích hợp camera AI</span>
+          <!-- Live Webcam Proctoring Card -->
+          <div class="pt-4 border-t border-slate-700">
+            <div class="bg-slate-900/90 rounded-xl border border-slate-700/70 overflow-hidden">
+              <div class="px-3 py-2 border-b border-slate-800 flex items-center justify-between text-[11px]">
+                <span class="font-bold text-slate-300 flex items-center">
+                  <i class="fa-solid fa-video mr-1.5 text-brand-400"></i>
+                  Camera Giám Sát
+                </span>
+                <span *ngIf="webcamActive()" class="inline-flex items-center px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1 animate-pulse"></span> REC
+                </span>
+                <span *ngIf="!webcamActive()" class="text-[10px] text-amber-400 font-semibold">Không có Cam</span>
+              </div>
+
+              <div class="relative aspect-video bg-slate-950 flex items-center justify-center">
+                <video #webcamVideo
+                       [srcObject]="webcamStream()"
+                       autoplay muted playsinline
+                       class="w-full h-full object-cover"
+                       [class.hidden]="!webcamActive()"></video>
+                <div *ngIf="!webcamActive()" class="text-center p-3">
+                  <i class="fa-solid fa-video-slash text-slate-600 text-lg mb-1 block"></i>
+                  <span class="text-[10px] text-slate-500">Camera chưa được bật</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -232,39 +257,61 @@ import { ToastService } from '../../core/services/toast.service';
 
       </main>
 
-      <!-- PRE-EXAM RULES & FULLSCREEN AGREEMENT MODAL -->
-      <div *ngIf="showRulesModal()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-        <div class="bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-700 text-slate-200">
+      <!-- PRE-EXAM RULES, CAMERA CHECK & FULLSCREEN AGREEMENT MODAL -->
+      <div *ngIf="showRulesModal()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+        <div class="bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-700 text-slate-200 my-8">
           
-          <div class="w-12 h-12 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center text-2xl mx-auto mb-4">
+          <div class="w-12 h-12 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center text-2xl mx-auto mb-3">
             <i class="fa-solid fa-shield-halved"></i>
           </div>
 
           <h3 class="text-xl font-bold text-white text-center">Quy Chế Phòng Thi Trực Tuyến & Chống Gian Lận</h3>
-          <p class="text-xs text-slate-400 text-center mt-1">Hệ thống áp dụng cơ chế giám sát đa tầng tự động.</p>
+          <p class="text-xs text-slate-400 text-center mt-1">Hệ thống áp dụng cơ chế giám sát đa tầng và đồng bộ trực tiếp với giám thị.</p>
 
-          <div class="mt-5 space-y-3 bg-slate-900/80 p-4 rounded-xl border border-slate-700/60 text-xs text-slate-300">
+          <!-- Webcam Pre-check Area -->
+          <div class="mt-4 bg-slate-900/90 border border-slate-700 rounded-xl p-3 flex items-center space-x-3">
+            <div class="w-24 h-16 rounded-lg bg-slate-950 overflow-hidden flex items-center justify-center shrink-0 border border-slate-800">
+              <video [srcObject]="webcamStream()" autoplay muted playsinline class="w-full h-full object-cover" *ngIf="webcamActive()"></video>
+              <i *ngIf="!webcamActive()" class="fa-solid fa-camera text-slate-600"></i>
+            </div>
+            <div class="flex-1 text-xs">
+              <div class="font-bold text-white flex items-center space-x-1.5">
+                <span>Kiểm tra Webcam Giám Sát</span>
+                <span *ngIf="examView()?.requireWebcam" class="px-1.5 py-0.5 text-[10px] bg-rose-500/20 text-rose-300 rounded">Bắt buộc</span>
+              </div>
+              <p class="text-[11px] mt-0.5" [ngClass]="webcamActive() ? 'text-emerald-400' : 'text-amber-400'">
+                {{ webcamStatusMessage() }}
+              </p>
+              <button *ngIf="!webcamActive()" type="button" (click)="initWebcam()"
+                      class="mt-1.5 px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-[11px] font-semibold">
+                <i class="fa-solid fa-camera mr-1"></i> Bật Thử Camera
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-4 space-y-2.5 bg-slate-900/80 p-4 rounded-xl border border-slate-700/60 text-xs text-slate-300">
             <div class="flex items-start space-x-2">
               <i class="fa-solid fa-expand text-brand-400 mt-0.5"></i>
               <span><strong>Bắt buộc toàn màn hình:</strong> Bài thi yêu cầu chế độ Fullscreen trong suốt quá trình làm bài.</span>
             </div>
             <div class="flex items-start space-x-2">
               <i class="fa-solid fa-arrow-right-arrow-left text-amber-400 mt-0.5"></i>
-              <span><strong>Không đổi tab:</strong> Hệ thống tự động ghi nhận và tính điểm vi phạm nếu bạn chuyển tab hoặc mất tiêu điểm.</span>
+              <span><strong>Không đổi tab:</strong> Hệ thống gửi cảnh báo thời gian thực tới giám thị nếu bạn chuyển tab hoặc mất tiêu điểm.</span>
             </div>
             <div class="flex items-start space-x-2">
               <i class="fa-solid fa-ban text-rose-400 mt-0.5"></i>
-              <span><strong>Vô hiệu hóa sao chép:</strong> Nghiêm cấm bôi đen, copy/paste và các phím tắt kiểm tra mã (F12, DevTools).</span>
+              <span><strong>Vô hiệu hóa sao chép:</strong> Nghiêm cấm bôi đen, copy/paste và mở DevTools (F12).</span>
             </div>
             <div class="flex items-start space-x-2">
               <i class="fa-solid fa-floppy-disk text-emerald-400 mt-0.5"></i>
-              <span><strong>Tự động lưu:</strong> Bài làm của bạn được lưu ngầm liên tục và tự động nộp khi hết giờ.</span>
+              <span><strong>Tự động lưu:</strong> Bài làm được lưu ngầm mỗi 15 giây và tự động nộp khi hết giờ.</span>
             </div>
           </div>
 
           <div class="mt-6 flex flex-col space-y-3">
             <button (click)="agreeAndEnterFullscreen()"
-                    class="w-full py-3 px-4 bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-brand-500/30 transition-all flex items-center justify-center">
+                    [disabled]="examView()?.requireWebcam && !webcamActive()"
+                    class="w-full py-3 px-4 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl shadow-lg shadow-brand-500/30 transition-all flex items-center justify-center">
               <i class="fa-solid fa-expand mr-2"></i>
               Tôi Đã Hiểu & Bắt Đầu Toàn Màn Hình
             </button>
@@ -277,7 +324,7 @@ import { ToastService } from '../../core/services/toast.service';
       </div>
 
       <!-- FULLSCREEN EXIT BLOCKING OVERLAY -->
-      <div *ngIf="antiCheat.isOverlayWarningVisible()"
+      <div *ngIf="antiCheat.isOverlayWarningVisible() && !disqualifiedReason()"
            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-rose-950/95 backdrop-blur-xl">
         <div class="max-w-md w-full text-center p-8 bg-slate-900 rounded-3xl border-2 border-rose-500 shadow-2xl shadow-rose-900/50">
           <div class="w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-500 flex items-center justify-center text-3xl mx-auto mb-4 animate-bounce">
@@ -297,6 +344,24 @@ import { ToastService } from '../../core/services/toast.service';
                   class="mt-6 w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center">
             <i class="fa-solid fa-expand mr-2"></i>
             Quay Lại Chế Độ Toàn Màn Hình
+          </button>
+        </div>
+      </div>
+
+      <!-- FORCE DISQUALIFIED OVERLAY -->
+      <div *ngIf="disqualifiedReason() as reason"
+           class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-xl">
+        <div class="max-w-md w-full text-center p-8 bg-slate-900 rounded-3xl border-2 border-rose-600 shadow-2xl">
+          <div class="w-16 h-16 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-3xl mx-auto mb-4">
+            <i class="fa-solid fa-ban"></i>
+          </div>
+          <h2 class="text-xl font-black text-white">PHIÊN THI ĐÃ BỊ ĐÌNH CHỈ</h2>
+          <p class="text-xs text-rose-300 mt-2 leading-relaxed">
+            Giám thị đã đình chỉ bài thi của bạn với lý do: <strong>{{ reason }}</strong>
+          </p>
+          <button (click)="cancelExam()"
+                  class="mt-6 w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm rounded-xl transition-all">
+            Quay Về Trang Chủ
           </button>
         </div>
       </div>
@@ -341,7 +406,10 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private http = inject(HttpClient);
   antiCheat = inject(AntiCheatService);
+  signalR = inject(ProctoringSignalRService);
   private toast = inject(ToastService);
+
+  @ViewChild('webcamVideo') webcamVideoRef?: ElementRef<HTMLVideoElement>;
 
   QuestionType = QuestionType;
 
@@ -355,9 +423,15 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
 
   showRulesModal = signal<boolean>(true);
   showSubmitConfirm = signal<boolean>(false);
+  disqualifiedReason = signal<string | null>(null);
+
+  webcamStream = signal<MediaStream | null>(null);
+  webcamActive = signal<boolean>(false);
+  webcamStatusMessage = signal<string>('Đang kiểm tra thiết bị camera...');
 
   private timerInterval: any = null;
   private autosaveInterval: any = null;
+  private snapshotInterval: any = null;
 
   currentQuestion = computed<StudentQuestion | null>(() => {
     const view = this.examView();
@@ -382,24 +456,71 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.initWebcam();
     this.startExamSession(examId);
   }
 
   ngOnDestroy(): void {
+    this.cleanupAllResources();
+  }
+
+  private cleanupAllResources(): void {
     clearInterval(this.timerInterval);
     clearInterval(this.autosaveInterval);
+    clearInterval(this.snapshotInterval);
     this.antiCheat.stopMonitoring();
+    this.signalR.disconnect();
+    this.stopWebcam();
+  }
+
+  private getOrCreateClientInstanceId(): string {
+    const key = 'exam249_client_instance_id';
+    let id = sessionStorage.getItem(key);
+    if (!id) {
+      id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      sessionStorage.setItem(key, id);
+    }
+    return id;
+  }
+
+  async initWebcam(): Promise<void> {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      this.webcamActive.set(false);
+      this.webcamStatusMessage.set('Trình duyệt không hỗ trợ camera.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: false });
+      this.webcamStream.set(stream);
+      this.webcamActive.set(true);
+      this.webcamStatusMessage.set('Camera đã sẵn sàng hoạt động.');
+    } catch {
+      this.webcamActive.set(false);
+      this.webcamStatusMessage.set('Không thể truy cập camera hoặc bị từ chối quyền.');
+    }
+  }
+
+  private stopWebcam(): void {
+    const stream = this.webcamStream();
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      this.webcamStream.set(null);
+    }
+    this.webcamActive.set(false);
   }
 
   startExamSession(examId: string): void {
-    this.http.post<ApiResponse<StudentExamView>>(`${environment.apiUrl}/exams/${examId}/start-session`, {}).subscribe({
+    const clientInstanceId = this.getOrCreateClientInstanceId();
+    this.http.post<ApiResponse<StudentExamView>>(`${environment.apiUrl}/exams/${examId}/start-session`, { clientInstanceId }).subscribe({
       next: res => {
         if (res.success && res.data) {
           const data = res.data;
           this.examView.set(data);
           this.remainingSeconds.set(data.remainingSeconds);
 
-          // Populate current answers
           const map = new Map<string, StudentAnswerItem>();
           data.questions.forEach(q => {
             map.set(q.questionId, { questionId: q.questionId, selectedOptionIds: [], textAnswer: '', isFlagged: false });
@@ -422,18 +543,37 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
   }
 
   agreeAndEnterFullscreen(): void {
+    const view = this.examView();
+    if (view?.requireWebcam && !this.webcamActive()) {
+      this.toast.error('Kỳ thi này bắt buộc bật Camera trước khi vào phòng thi.');
+      return;
+    }
+
     this.showRulesModal.set(false);
-    this.antiCheat.requestFullscreen().then(() => {
-      const view = this.examView();
+    this.antiCheat.requestFullscreen().catch(() => {}).finally(() => {
       if (view) {
-        this.antiCheat.startMonitoring(view.sessionId);
+        this.antiCheat.startMonitoring(view.sessionId, view.examId, (type) => {
+          const reason = type === ViolationType.TabSwitch ? 'TabSwitch' : 'FullscreenExit';
+          this.captureSnapshotNow(reason);
+        });
+
+        this.signalR.connectStudent(view.examId, view.sessionId, view.questions.length, (reason) => {
+          this.disqualifiedReason.set(reason);
+          this.cleanupAllResources();
+          this.toast.error(`Phiên thi đã bị đình chỉ: ${reason}`);
+        }).then(() => {
+          this.signalR.sendStudentProgress(view.examId, view.sessionId, this.answeredCount(), view.questions.length, this.webcamActive());
+        });
+
         this.startTimer();
         this.startAutosaveLoop();
+        this.startWebcamSnapshotLoop();
       }
     });
   }
 
   cancelExam(): void {
+    this.cleanupAllResources();
     this.router.navigate(['/student/dashboard']);
   }
 
@@ -454,12 +594,29 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
   startAutosaveLoop(): void {
     this.autosaveInterval = setInterval(() => {
       this.saveAnswersRemotely();
-    }, 15000); // Every 15 seconds
+      const view = this.examView();
+      if (view) {
+        this.signalR.sendStudentProgress(view.examId, view.sessionId, this.answeredCount(), view.questions.length, this.webcamActive());
+      }
+    }, 15000);
+  }
+
+  startWebcamSnapshotLoop(): void {
+    // Capture initial snapshot shortly after entering, then every 30s
+    setTimeout(() => this.captureSnapshotNow('SessionStart'), 3000);
+    this.snapshotInterval = setInterval(() => {
+      this.captureSnapshotNow('Periodic');
+    }, 30000);
+  }
+
+  private captureSnapshotNow(triggerReason: string): void {
+    if (!this.webcamActive() || !this.webcamVideoRef?.nativeElement) return;
+    this.antiCheat.captureWebcamSnapshot(this.webcamVideoRef.nativeElement, triggerReason);
   }
 
   saveAnswersRemotely(): void {
     const view = this.examView();
-    if (!view) return;
+    if (!view || this.disqualifiedReason()) return;
 
     this.isAutosaving.set(true);
     const answersList = Array.from(this.answersMap().values());
@@ -477,7 +634,6 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Question navigation
   goToQuestion(index: number): void {
     this.currentQuestionIndex.set(index);
   }
@@ -495,13 +651,20 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Answer handlers
+  private syncProgressRealtime(): void {
+    const view = this.examView();
+    if (view) {
+      this.signalR.sendStudentProgress(view.examId, view.sessionId, this.answeredCount(), view.questions.length, this.webcamActive());
+    }
+  }
+
   selectSingleOption(questionId: string, optionId: string): void {
     const map = new Map(this.answersMap());
     const item = map.get(questionId) || { questionId, selectedOptionIds: [], isFlagged: false };
     item.selectedOptionIds = [optionId];
     map.set(questionId, item);
     this.answersMap.set(map);
+    this.syncProgressRealtime();
   }
 
   toggleMultiOption(questionId: string, optionId: string): void {
@@ -515,6 +678,7 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
     }
     map.set(questionId, item);
     this.answersMap.set(map);
+    this.syncProgressRealtime();
   }
 
   onTextAnswerChange(questionId: string, text: string): void {
@@ -533,7 +697,6 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
     this.answersMap.set(map);
   }
 
-  // Inspection helpers
   isSelected(questionId: string, optionId: string): boolean {
     const item = this.answersMap().get(questionId);
     return !!item && item.selectedOptionIds.includes(optionId);
@@ -559,14 +722,14 @@ export class ExamRoomComponent implements OnInit, OnDestroy {
 
   executeSubmit(): void {
     const view = this.examView();
-    if (!view) return;
+    if (!view || this.disqualifiedReason()) return;
 
     this.showSubmitConfirm.set(false);
     const answersList = Array.from(this.answersMap().values());
 
     this.http.post<ApiResponse<ExamResult>>(`${environment.apiUrl}/exams/sessions/${view.sessionId}/submit`, { answers: answersList }).subscribe({
-      next: res => {
-        this.antiCheat.stopMonitoring();
+      next: () => {
+        this.cleanupAllResources();
         this.toast.success('Nộp bài thi thành công!');
         this.router.navigate(['/exam-result', view.sessionId]);
       },

@@ -72,4 +72,59 @@ public class AntiCheatClient
 
         return new List<RiskScoreSummaryDto>();
     }
+
+    public async Task InitLiveSessionAsync(InitLiveSessionRequest request)
+    {
+        try
+        {
+            await _httpClient.PostAsJsonAsync("/api/anticheat/internal/live-sessions/init", request);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to init live session in AntiCheatService for {SessionId}", request.SessionId);
+        }
+    }
+
+    public async Task NotifySessionSubmittedAsync(Guid sessionId, Guid examId)
+    {
+        try
+        {
+            await _httpClient.PostAsync($"/api/anticheat/internal/live-sessions/{sessionId}/submitted?examId={examId}", null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to notify session submitted to AntiCheatService for {SessionId}", sessionId);
+        }
+    }
+
+    public async Task NotifySessionDisqualifiedAsync(Guid sessionId, Guid examId, string reason)
+    {
+        try
+        {
+            await _httpClient.PostAsJsonAsync($"/api/anticheat/internal/live-sessions/{sessionId}/disqualified?examId={examId}", new DisqualifySessionRequest { Reason = reason });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to notify session disqualified to AntiCheatService for {SessionId}", sessionId);
+        }
+    }
+
+    public async Task<RiskScoreSummaryDto?> RecordInternalViolationAsync(InternalViolationRequest request)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("/api/anticheat/internal/violations", request);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<ApiResponse<RiskScoreSummaryDto>>();
+                return result?.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to record internal violation for session {SessionId}", request.SessionId);
+        }
+
+        return null;
+    }
 }

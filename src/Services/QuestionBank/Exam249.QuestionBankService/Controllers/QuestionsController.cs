@@ -1,5 +1,6 @@
 using Exam249.QuestionBankService.Data;
 using Exam249.QuestionBankService.Entities;
+using Exam249.QuestionBankService.Services;
 using Exam249.Shared.Common.Security;
 using Exam249.Shared.Contracts.Common;
 using Exam249.Shared.Contracts.DTOs;
@@ -17,11 +18,13 @@ namespace Exam249.QuestionBankService.Controllers;
 public class QuestionsController : ControllerBase
 {
     private readonly QuestionBankDbContext _context;
+    private readonly SubjectLookupClient _subjectClient;
     private readonly IConfiguration _configuration;
 
-    public QuestionsController(QuestionBankDbContext context, IConfiguration configuration)
+    public QuestionsController(QuestionBankDbContext context, SubjectLookupClient subjectClient, IConfiguration configuration)
     {
         _context = context;
+        _subjectClient = subjectClient;
         _configuration = configuration;
     }
 
@@ -133,10 +136,12 @@ public class QuestionsController : ControllerBase
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<ApiResponse<QuestionDto>>> CreateQuestion([FromBody] CreateQuestionRequest request)
     {
+        var subjectName = await _subjectClient.GetSubjectNameAsync(request.SubjectId) ?? "Môn học";
+
         var question = new Question
         {
             SubjectId = request.SubjectId,
-            SubjectName = "Môn học",
+            SubjectName = subjectName,
             Content = request.Content.Trim(),
             ImageUrl = request.ImageUrl,
             Type = request.Type,
@@ -204,6 +209,11 @@ public class QuestionsController : ControllerBase
 
         if (question == null)
             return NotFound(ApiResponse.Fail("Không tìm thấy câu hỏi."));
+
+        if (question.SubjectId != request.SubjectId || string.IsNullOrWhiteSpace(question.SubjectName) || question.SubjectName == "Môn học")
+        {
+            question.SubjectName = await _subjectClient.GetSubjectNameAsync(request.SubjectId) ?? question.SubjectName;
+        }
 
         question.SubjectId = request.SubjectId;
         question.Content = request.Content.Trim();
@@ -311,5 +321,18 @@ public class QuestionsController : ControllerBase
             .ToListAsync();
 
         return Ok(ApiResponse<List<QuestionDto>>.Ok(questions));
+    }
+
+    [HttpGet("internal/count")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<int>>> GetInternalCount()
+    {
+        if (!InternalSecurityConstants.IsValidInternalRequest(Request, _configuration))
+        {
+            return Forbid();
+        }
+
+        var count = await _context.Questions.CountAsync(q => !q.IsDeleted);
+        return Ok(ApiResponse<int>.Ok(count));
     }
 }

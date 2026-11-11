@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Exam249.AntiCheatService.Data;
 using Exam249.AntiCheatService.Entities;
+using Exam249.AntiCheatService.Hubs;
+using Exam249.AntiCheatService.Services;
 using Exam249.Shared.Common.Security;
 using Exam249.Shared.Common.Utilities;
 using Exam249.Shared.Contracts.Common;
@@ -10,6 +12,7 @@ using Exam249.Shared.Contracts.Events;
 using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -22,17 +25,23 @@ public class AntiCheatController : ControllerBase
 {
     private readonly AntiCheatDbContext _context;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IHubContext<ProctoringHub> _hubContext;
+    private readonly LiveProctoringRegistry _registry;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AntiCheatController> _logger;
 
     public AntiCheatController(
         AntiCheatDbContext context,
         IPublishEndpoint publishEndpoint,
+        IHubContext<ProctoringHub> hubContext,
+        LiveProctoringRegistry registry,
         IConfiguration configuration,
         ILogger<AntiCheatController> logger)
     {
         _context = context;
         _publishEndpoint = publishEndpoint;
+        _hubContext = hubContext;
+        _registry = registry;
         _configuration = configuration;
         _logger = logger;
     }
@@ -43,32 +52,81 @@ public class AntiCheatController : ControllerBase
         var studentIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         Guid.TryParse(studentIdStr, out var studentId);
 
-        var penalty = AntiCheatRiskCalculator.GetPenaltyPoints(request.Type);
-        var violationName = AntiCheatRiskCalculator.GetViolationNameVi(request.Type);
-
-        var violation = new ExamViolation
-        {
-            SessionId = request.SessionId,
-            StudentId = studentId,
-            Type = request.Type,
-            Description = request.Description ?? violationName,
-            Metadata = request.Metadata,
-            PenaltyPoints = penalty,
-            TimestampUtc = DateTime.UtcNow,
-            // Security Fix (HIGH-03): Prioritize trusted remote IP to prevent client-side spoofing
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? request.IpAddress ?? "unknown",
-            UserAgent = Request.Headers.UserAgent.ToString()
-        };
-
-        // Update or create RiskAssessment
-        var assessment = await _context.RiskAssessments
+        var existingAssessment = await _context.RiskAssessments
             .FirstOrDefaultAsync(r => r.SessionId == request.SessionId);
 
         // Security Fix (HIGH-03): Prevent framing attack where caller records violations for someone else's session
-        if (assessment != null && assessment.StudentId != studentId)
+        if (existingAssessment != null && existingAssessment.StudentId != studentId)
         {
             return Forbid();
         }
+
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? request.IpAddress ?? "unknown";
+        var ua = Request.Headers.UserAgent.ToString();
+
+        var summary = await RecordViolationCoreAsync(
+            request.SessionId,
+            studentId,
+            request.ExamId,
+            request.Type,
+            request.Description,
+            request.Metadata,
+            ip,
+            ua);
+
+        return Ok(ApiResponse<RiskScoreSummaryDto>.Ok(summary, "Ghi nhận vi phạm thành công."));
+    }
+
+    [HttpPost("internal/violations")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<RiskScoreSummaryDto>>> RecordInternalViolation([FromBody] InternalViolationRequest request)
+    {
+        if (!InternalSecurityConstants.IsValidInternalRequest(Request, _configuration))
+        {
+            return Forbid();
+        }
+
+        var summary = await RecordViolationCoreAsync(
+            request.SessionId,
+            request.StudentId,
+            request.ExamId,
+            request.Type,
+            request.Description,
+            request.Metadata,
+            request.IpAddress ?? "internal",
+            request.UserAgent ?? "ExamService");
+
+        return Ok(ApiResponse<RiskScoreSummaryDto>.Ok(summary, "Ghi nhận vi phạm nội bộ thành công."));
+    }
+
+    private async Task<RiskScoreSummaryDto> RecordViolationCoreAsync(
+        Guid sessionId,
+        Guid studentId,
+        Guid? examId,
+        ViolationType type,
+        string? description,
+        string? metadata,
+        string ipAddress,
+        string userAgent)
+    {
+        var penalty = AntiCheatRiskCalculator.GetPenaltyPoints(type);
+        var violationName = AntiCheatRiskCalculator.GetViolationNameVi(type);
+
+        var violation = new ExamViolation
+        {
+            SessionId = sessionId,
+            StudentId = studentId,
+            Type = type,
+            Description = description ?? violationName,
+            Metadata = metadata,
+            PenaltyPoints = penalty,
+            TimestampUtc = DateTime.UtcNow,
+            IpAddress = ipAddress,
+            UserAgent = userAgent
+        };
+
+        var assessment = await _context.RiskAssessments
+            .FirstOrDefaultAsync(r => r.SessionId == sessionId);
 
         await _context.ExamViolations.AddAsync(violation);
 
@@ -76,7 +134,8 @@ public class AntiCheatController : ControllerBase
         {
             assessment = new RiskAssessment
             {
-                SessionId = request.SessionId,
+                SessionId = sessionId,
+                ExamId = examId ?? _registry.GetExamId(sessionId),
                 StudentId = studentId,
                 TotalRiskScore = 0,
                 ViolationsCount = 0,
@@ -85,10 +144,13 @@ public class AntiCheatController : ControllerBase
             };
             await _context.RiskAssessments.AddAsync(assessment);
         }
+        else if (!assessment.ExamId.HasValue && (examId.HasValue || _registry.GetExamId(sessionId).HasValue))
+        {
+            assessment.ExamId = examId ?? _registry.GetExamId(sessionId);
+        }
 
-        // Sum all penalties for this session
         var allPenalties = await _context.ExamViolations
-            .Where(v => v.SessionId == request.SessionId)
+            .Where(v => v.SessionId == sessionId)
             .SumAsync(v => v.PenaltyPoints) + penalty;
 
         assessment.TotalRiskScore = Math.Min(100, allPenalties);
@@ -98,11 +160,13 @@ public class AntiCheatController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Publish event
+        var resolvedExamId = assessment.ExamId ?? examId ?? _registry.GetExamId(sessionId);
+        var updatedLive = _registry.UpdateViolation(sessionId, resolvedExamId, assessment.TotalRiskScore, assessment.RiskLevel, assessment.ViolationsCount);
+
         await _publishEndpoint.Publish(new ViolationRecordedEvent(
-            request.SessionId,
+            sessionId,
             studentId,
-            request.Type,
+            type,
             penalty,
             assessment.TotalRiskScore,
             assessment.RiskLevel,
@@ -110,11 +174,37 @@ public class AntiCheatController : ControllerBase
             violation.Description,
             violation.Metadata));
 
-        _logger.LogWarning("AntiCheat violation recorded for session {SessionId}: {Type} (+{Penalty} pts). Total: {TotalPts} ({Level})",
-            request.SessionId, request.Type, penalty, assessment.TotalRiskScore, assessment.RiskLevel);
+        if (resolvedExamId.HasValue)
+        {
+            await _hubContext.Clients.Group(ProctoringHub.ProctorGroup(resolvedExamId.Value))
+                .SendAsync("ViolationAlert", new
+                {
+                    SessionId = sessionId,
+                    ExamId = resolvedExamId.Value,
+                    StudentId = studentId,
+                    StudentName = updatedLive?.StudentName ?? "Thí sinh",
+                    TotalRiskScore = assessment.TotalRiskScore,
+                    RiskLevel = assessment.RiskLevel,
+                    ViolationsCount = assessment.ViolationsCount,
+                    Violation = new ViolationEventDto
+                    {
+                        Id = violation.Id,
+                        SessionId = violation.SessionId,
+                        Type = violation.Type,
+                        TypeName = violationName,
+                        Description = violation.Description,
+                        Metadata = violation.Metadata,
+                        PenaltyPoints = violation.PenaltyPoints,
+                        TimestampUtc = violation.TimestampUtc,
+                        IpAddress = violation.IpAddress
+                    }
+                });
+        }
 
-        var summary = await BuildSummary(request.SessionId);
-        return Ok(ApiResponse<RiskScoreSummaryDto>.Ok(summary, "Ghi nhận vi phạm thành công."));
+        _logger.LogWarning("AntiCheat violation recorded for session {SessionId}: {Type} (+{Penalty} pts). Total: {TotalPts} ({Level})",
+            sessionId, type, penalty, assessment.TotalRiskScore, assessment.RiskLevel);
+
+        return await BuildSummary(sessionId);
     }
 
     [HttpGet("sessions/{sessionId:guid}/summary")]
@@ -228,11 +318,35 @@ public class AntiCheatController : ControllerBase
         await _context.ProctoringSnapshots.AddAsync(snapshot);
         await _context.SaveChangesAsync();
 
+        _registry.UpdateSnapshot(sessionId, imageStoragePath);
+
+        var resolvedExamId = request.ExamId ?? _registry.GetExamId(sessionId);
+        if (!resolvedExamId.HasValue)
+        {
+            resolvedExamId = await _context.RiskAssessments
+                .Where(r => r.SessionId == sessionId)
+                .Select(r => r.ExamId)
+                .FirstOrDefaultAsync();
+        }
+
+        if (resolvedExamId.HasValue)
+        {
+            await _hubContext.Clients.Group(ProctoringHub.ProctorGroup(resolvedExamId.Value))
+                .SendAsync("SnapshotCaptured", new
+                {
+                    SessionId = sessionId,
+                    ExamId = resolvedExamId.Value,
+                    ImageUrl = imageStoragePath,
+                    TriggerReason = snapshot.TriggerReason,
+                    TimestampUtc = snapshot.TimestampUtc
+                });
+        }
+
         return Ok(ApiResponse.Ok("Lưu ảnh giám sát thành công."));
     }
 
     [HttpGet("sessions/{sessionId:guid}/snapshots/image/{fileName}")]
-    [AllowAnonymous]
+    [Authorize(Roles = "Teacher,Admin")]
     public IActionResult GetSnapshotImageFile(Guid sessionId, string fileName)
     {
         // Prevent path traversal
@@ -265,6 +379,99 @@ public class AntiCheatController : ControllerBase
         return Ok(ApiResponse<List<ProctoringSnapshotDto>>.Ok(snapshots));
     }
 
+    [HttpGet("exams/{examId:guid}/live-sessions")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public ActionResult<ApiResponse<List<LiveSessionMonitorDto>>> GetLiveSessions(Guid examId)
+    {
+        var sessions = _registry.GetSessionsByExam(examId);
+        return Ok(ApiResponse<List<LiveSessionMonitorDto>>.Ok(sessions));
+    }
+
+    [HttpPost("internal/live-sessions/init")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<LiveSessionMonitorDto>>> InitLiveSession([FromBody] InitLiveSessionRequest request)
+    {
+        if (!InternalSecurityConstants.IsValidInternalRequest(Request, _configuration))
+            return Forbid();
+
+        var assessment = await _context.RiskAssessments.FirstOrDefaultAsync(r => r.SessionId == request.SessionId);
+        if (assessment == null)
+        {
+            assessment = new RiskAssessment
+            {
+                SessionId = request.SessionId,
+                ExamId = request.ExamId,
+                StudentId = request.StudentId,
+                TotalRiskScore = 0,
+                ViolationsCount = 0,
+                RiskLevel = RiskLevel.Safe,
+                LastEvaluatedAtUtc = request.StartedAtUtc
+            };
+            await _context.RiskAssessments.AddAsync(assessment);
+            await _context.SaveChangesAsync();
+        }
+        else if (!assessment.ExamId.HasValue)
+        {
+            assessment.ExamId = request.ExamId;
+            await _context.SaveChangesAsync();
+        }
+
+        var latestSnapshot = await _context.ProctoringSnapshots
+            .Where(s => s.SessionId == request.SessionId)
+            .OrderByDescending(s => s.TimestampUtc)
+            .Select(s => s.ImageData)
+            .FirstOrDefaultAsync();
+
+        var dto = _registry.InitSession(request, assessment.TotalRiskScore, assessment.RiskLevel, assessment.ViolationsCount, latestSnapshot);
+        await _hubContext.Clients.Group(ProctoringHub.ProctorGroup(request.ExamId))
+            .SendAsync("StudentJoined", dto);
+
+        return Ok(ApiResponse<LiveSessionMonitorDto>.Ok(dto));
+    }
+
+    [HttpPost("internal/live-sessions/{sessionId:guid}/submitted")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse>> NotifySessionSubmitted(Guid sessionId, [FromQuery] Guid? examId = null)
+    {
+        if (!InternalSecurityConstants.IsValidInternalRequest(Request, _configuration))
+            return Forbid();
+
+        var dto = _registry.MarkStatus(sessionId, SessionStatus.Submitted);
+        var resolvedExamId = examId ?? dto?.ExamId ?? _registry.GetExamId(sessionId);
+        if (resolvedExamId.HasValue)
+        {
+            await _hubContext.Clients.Group(ProctoringHub.ProctorGroup(resolvedExamId.Value))
+                .SendAsync("StudentSubmitted", new { SessionId = sessionId, ExamId = resolvedExamId.Value });
+        }
+
+        return Ok(ApiResponse.Ok("Đã cập nhật trạng thái nộp bài."));
+    }
+
+    [HttpPost("internal/live-sessions/{sessionId:guid}/disqualified")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse>> NotifySessionDisqualified(
+        Guid sessionId,
+        [FromQuery] Guid? examId,
+        [FromBody] DisqualifySessionRequest request)
+    {
+        if (!InternalSecurityConstants.IsValidInternalRequest(Request, _configuration))
+            return Forbid();
+
+        var dto = _registry.MarkStatus(sessionId, SessionStatus.Disqualified);
+        var resolvedExamId = examId ?? dto?.ExamId ?? _registry.GetExamId(sessionId);
+
+        await _hubContext.Clients.Group(ProctoringHub.SessionGroup(sessionId))
+            .SendAsync("ForceDisqualified", new { SessionId = sessionId, Reason = request.Reason });
+
+        if (resolvedExamId.HasValue)
+        {
+            await _hubContext.Clients.Group(ProctoringHub.ProctorGroup(resolvedExamId.Value))
+                .SendAsync("SessionDisqualified", new { SessionId = sessionId, ExamId = resolvedExamId.Value, Reason = request.Reason });
+        }
+
+        return Ok(ApiResponse.Ok("Đã gửi lệnh đình chỉ phiên thi."));
+    }
+
     private async Task<RiskScoreSummaryDto> BuildSummary(Guid sessionId)
     {
         var assessment = await _context.RiskAssessments
@@ -289,6 +496,7 @@ public class AntiCheatController : ControllerBase
         return new RiskScoreSummaryDto
         {
             SessionId = sessionId,
+            ExamId = assessment?.ExamId ?? _registry.GetExamId(sessionId),
             TotalRiskScore = assessment?.TotalRiskScore ?? 0,
             RiskLevel = assessment?.RiskLevel ?? RiskLevel.Safe,
             ViolationsCount = violations.Count,

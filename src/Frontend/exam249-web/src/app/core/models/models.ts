@@ -147,10 +147,21 @@ export interface Exam {
   shuffleOptions: boolean;
   showResultsImmediately: boolean;
   allowReview: boolean;
+  requireWebcam?: boolean;
   status: ExamStatus;
   questionCount: number;
   totalPoints: number;
   createdAtUtc: string;
+  questions?: ExamQuestionItem[];
+}
+
+export interface ExamQuestionItem {
+  questionId: string;
+  content: string;
+  type: QuestionType;
+  difficulty: DifficultyLevel;
+  points: number;
+  orderIndex: number;
 }
 
 export interface StudentOption {
@@ -186,6 +197,8 @@ export interface StudentExamView {
   deadlineUtc: string;
   remainingSeconds: number;
   examVariantCode: string;
+  requireWebcam?: boolean;
+  clientInstanceId?: string;
   questions: StudentQuestion[];
   currentAnswers: StudentAnswerItem[];
 }
@@ -202,6 +215,7 @@ export interface SubmissionDetail {
   correctOptionIds: string[];
   acceptedAnswers: string[];
   explanation?: string;
+  options?: StudentOption[];
 }
 
 export interface ExamResult {
@@ -329,4 +343,49 @@ export interface StudentDashboard {
     isPassed: boolean;
     submittedAtUtc: string;
   }[];
+}
+
+export interface ProctoringSnapshot {
+  id: string;
+  sessionId: string;
+  imageUrl: string;
+  triggerReason: string;
+  timestampUtc: string;
+}
+
+export interface LiveSessionMonitor {
+  sessionId: string;
+  examId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  examVariantCode: string;
+  startedAtUtc: string;
+  deadlineUtc: string;
+  status: SessionStatus;
+  answeredCount: number;
+  totalQuestions: number;
+  totalRiskScore: number;
+  riskLevel: RiskLevel;
+  violationsCount: number;
+  latestSnapshotUrl?: string;
+  webcamActive: boolean;
+  lastHeartbeatUtc: string;
+  isOnline: boolean;
+}
+
+export interface ExamAnalytics {
+  examId: string;
+  title: string;
+  classroomName: string;
+  totalSubmissions: number;
+  averageScore: number;
+  highestScore: number;
+  lowestScore: number;
+  passRate: number;
+  excellentCount: number;
+  goodCount: number;
+  averageCount: number;
+  weakCount: number;
+  highRiskCount: number;
 }

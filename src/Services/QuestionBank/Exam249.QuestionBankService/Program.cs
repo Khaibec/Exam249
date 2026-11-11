@@ -1,4 +1,5 @@
 using Exam249.QuestionBankService.Data;
+using Exam249.QuestionBankService.Services;
 using Exam249.Shared.Common.Middleware;
 using Exam249.Shared.Common.Security;
 using Exam249.Shared.EventBus;
@@ -18,6 +19,7 @@ builder.Services.AddDbContext<QuestionBankDbContext>(options =>
     });
 });
 
+builder.Services.AddHttpClient<SubjectLookupClient>();
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedEventBus(builder.Configuration);
 

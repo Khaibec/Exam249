@@ -17,7 +17,7 @@ import { ToastService } from '../../core/services/toast.service';
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-slate-200">
         <div>
           <h1 class="text-2xl font-black text-slate-900 tracking-tight">Ngân Hàng Câu Hỏi</h1>
-          <p class="text-sm text-slate-500 mt-1">Soạn thảo, phân loại và lưu trữ câu hỏi trắc nghiệm một/nhiều đáp án và điền từ.</p>
+          <p class="text-sm text-slate-500 mt-1">Soạn thảo, chỉnh sửa, phân loại và lưu trữ câu hỏi trắc nghiệm một/nhiều đáp án và điền từ.</p>
         </div>
         <div class="mt-4 sm:mt-0">
           <button (click)="openCreateModal()"
@@ -36,6 +36,12 @@ import { ToastService } from '../../core/services/toast.service';
                  class="w-full text-xs pl-8 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500" />
           <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-2.5 top-2.5 text-xs"></i>
         </div>
+
+        <select [(ngModel)]="selectedSubjectId" (change)="loadQuestions()"
+                class="text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+          <option [ngValue]="null">Tất cả môn học</option>
+          <option *ngFor="let s of subjects()" [ngValue]="s.id">{{ s.name }}</option>
+        </select>
 
         <select [(ngModel)]="selectedType" (change)="loadQuestions()"
                 class="text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
@@ -65,8 +71,9 @@ import { ToastService } from '../../core/services/toast.service';
              class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:border-brand-300 transition-colors">
           
           <div class="flex items-start justify-between">
-            <div class="flex items-center space-x-2">
+            <div class="flex flex-wrap items-center gap-2">
               <span class="text-xs font-black text-slate-400">#{{ idx + 1 }}</span>
+              <span class="px-2.5 py-0.5 text-xs font-bold rounded-lg bg-slate-100 text-slate-700">{{ q.subjectName }}</span>
               <span class="px-2.5 py-0.5 text-xs font-bold rounded-full"
                     [ngClass]="{
                       'bg-blue-100 text-blue-800': q.type === QuestionType.SingleChoice,
@@ -81,9 +88,14 @@ import { ToastService } from '../../core/services/toast.service';
               <span class="text-xs font-semibold text-brand-600">{{ q.defaultPoints }} Điểm</span>
             </div>
 
-            <button (click)="deleteQuestion(q.id)" class="text-slate-400 hover:text-rose-600 text-xs" title="Xóa câu hỏi">
-              <i class="fa-regular fa-trash-can"></i>
-            </button>
+            <div class="flex items-center space-x-2">
+              <button (click)="openEditModal(q)" class="text-slate-400 hover:text-brand-600 text-xs p-1" title="Sửa câu hỏi">
+                <i class="fa-regular fa-pen-to-square"></i>
+              </button>
+              <button (click)="deleteQuestion(q.id)" class="text-slate-400 hover:text-rose-600 text-xs p-1" title="Xóa câu hỏi">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Question Content -->
@@ -124,19 +136,21 @@ import { ToastService } from '../../core/services/toast.service';
         </div>
       </div>
 
-      <!-- Create Question Modal -->
-      <div *ngIf="showCreateModal()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+      <!-- Create / Edit Question Modal -->
+      <div *ngIf="showModal()" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
         <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 my-8 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-            <h3 class="text-lg font-bold text-slate-900">Soạn Thảo Câu Hỏi Mới</h3>
-            <button (click)="showCreateModal.set(false)" class="text-slate-400 hover:text-slate-600">
+            <h3 class="text-lg font-bold text-slate-900">
+              {{ editingQuestionId() ? 'Chỉnh Sửa Câu Hỏi' : 'Soạn Thảo Câu Hỏi Mới' }}
+            </h3>
+            <button (click)="showModal.set(false)" class="text-slate-400 hover:text-slate-600">
               <i class="fa-solid fa-xmark text-lg"></i>
             </button>
           </div>
 
           <form (submit)="saveQuestion()" class="space-y-4 mt-4">
             
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Môn Học</label>
                 <select [(ngModel)]="newSubjectId" name="newSubjectId" required
@@ -164,6 +178,12 @@ import { ToastService } from '../../core/services/toast.service';
                   <option [ngValue]="DifficultyLevel.Hard">Khó</option>
                 </select>
               </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Điểm Mặc Định</label>
+                <input type="number" [(ngModel)]="newDefaultPoints" name="newDefaultPoints" min="0.25" step="0.25" required
+                       class="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              </div>
             </div>
 
             <div>
@@ -183,7 +203,6 @@ import { ToastService } from '../../core/services/toast.service';
               </div>
 
               <div *ngFor="let opt of newOptions; let i = index" class="flex items-center space-x-2">
-                <!-- Checkbox / Radio for correct answer -->
                 <button type="button" (click)="toggleCorrectOption(i)"
                         class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border transition-colors"
                         [ngClass]="opt.isCorrect ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-slate-100 border-slate-200 text-slate-400 hover:bg-slate-200'">
@@ -214,21 +233,29 @@ import { ToastService } from '../../core/services/toast.service';
               <p class="text-[11px] text-slate-500">Hệ thống sẽ tự động chuẩn hóa: loại bỏ khoảng trắng dư, không phân biệt hoa/thường và hỗ trợ đối chiếu không dấu.</p>
             </div>
 
-            <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Lời Giải Thích Chi Tiết (Tùy chọn)</label>
-              <textarea [(ngModel)]="newExplanation" name="newExplanation" rows="2"
-                        placeholder="Giải thích tại sao đáp án đúng..."
-                        class="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Lời Giải Thích Chi Tiết (Tùy chọn)</label>
+                <textarea [(ngModel)]="newExplanation" name="newExplanation" rows="2"
+                          placeholder="Giải thích tại sao đáp án đúng..."
+                          class="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Thẻ phân loại / Tags (Cách nhau dấu phẩy)</label>
+                <input type="text" [(ngModel)]="newTagsText" name="newTagsText"
+                       placeholder="Ví dụ: OOP, Microservices, Chương 1"
+                       class="w-full text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              </div>
             </div>
 
             <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-              <button type="button" (click)="showCreateModal.set(false)"
+              <button type="button" (click)="showModal.set(false)"
                       class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">
                 Hủy bỏ
               </button>
               <button type="submit"
                       class="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-md">
-                Lưu Câu Hỏi
+                {{ editingQuestionId() ? 'Cập Nhật Câu Hỏi' : 'Lưu Câu Hỏi' }}
               </button>
             </div>
           </form>
@@ -249,17 +276,21 @@ export class QuestionBankComponent implements OnInit {
   subjects = signal<Subject[]>([]);
 
   searchKeyword = '';
+  selectedSubjectId: string | null = null;
   selectedType: QuestionType | null = null;
   selectedDifficulty: DifficultyLevel | null = null;
 
-  showCreateModal = signal(false);
+  showModal = signal(false);
+  editingQuestionId = signal<string | null>(null);
 
   // Form State
   newSubjectId = '';
   newType: QuestionType = QuestionType.SingleChoice;
   newDifficulty: DifficultyLevel = DifficultyLevel.Medium;
+  newDefaultPoints = 2.0;
   newContent = '';
   newExplanation = '';
+  newTagsText = '';
   newAcceptedAnswersText = '';
   newOptions: { content: string; isCorrect: boolean }[] = [
     { content: '', isCorrect: true },
@@ -278,15 +309,16 @@ export class QuestionBankComponent implements OnInit {
       next: res => {
         if (res.success && res.data) {
           this.subjects.set(res.data);
-          if (res.data.length > 0) this.newSubjectId = res.data[0].id;
+          if (res.data.length > 0 && !this.newSubjectId) this.newSubjectId = res.data[0].id;
         }
       }
     });
   }
 
   loadQuestions(): void {
-    let url = `${environment.apiUrl}/questions?pageIndex=1&pageSize=50`;
+    let url = `${environment.apiUrl}/questions?pageIndex=1&pageSize=100`;
     if (this.searchKeyword) url += `&keyword=${encodeURIComponent(this.searchKeyword)}`;
+    if (this.selectedSubjectId) url += `&subjectId=${this.selectedSubjectId}`;
     if (this.selectedType) url += `&type=${this.selectedType}`;
     if (this.selectedDifficulty) url += `&difficulty=${this.selectedDifficulty}`;
 
@@ -300,18 +332,47 @@ export class QuestionBankComponent implements OnInit {
   }
 
   openCreateModal(): void {
+    this.editingQuestionId.set(null);
     this.newContent = '';
     this.newExplanation = '';
+    this.newTagsText = '';
     this.newAcceptedAnswersText = '';
     this.newType = QuestionType.SingleChoice;
     this.newDifficulty = DifficultyLevel.Medium;
+    this.newDefaultPoints = 2.0;
+    if (this.subjects().length > 0) this.newSubjectId = this.subjects()[0].id;
     this.newOptions = [
       { content: '', isCorrect: true },
       { content: '', isCorrect: false },
       { content: '', isCorrect: false },
       { content: '', isCorrect: false }
     ];
-    this.showCreateModal.set(true);
+    this.showModal.set(true);
+  }
+
+  openEditModal(q: Question): void {
+    this.editingQuestionId.set(q.id);
+    this.newSubjectId = q.subjectId;
+    this.newType = q.type;
+    this.newDifficulty = q.difficulty;
+    this.newDefaultPoints = q.defaultPoints || 1.0;
+    this.newContent = q.content;
+    this.newExplanation = q.explanation || '';
+    this.newTagsText = (q.tags || []).join(', ');
+    this.newAcceptedAnswersText = (q.acceptedAnswers || []).join(', ');
+
+    if (q.options && q.options.length > 0) {
+      this.newOptions = q.options.map(o => ({ content: o.content, isCorrect: o.isCorrect }));
+    } else {
+      this.newOptions = [
+        { content: '', isCorrect: true },
+        { content: '', isCorrect: false },
+        { content: '', isCorrect: false },
+        { content: '', isCorrect: false }
+      ];
+    }
+
+    this.showModal.set(true);
   }
 
   addOption(): void {
@@ -336,14 +397,19 @@ export class QuestionBankComponent implements OnInit {
       return;
     }
 
+    const tags = this.newTagsText
+      .split(',')
+      .map(t => t.trim())
+      .filter(t => !!t);
+
     const payload: any = {
       subjectId: this.newSubjectId,
       content: this.newContent.trim(),
       type: this.newType,
       difficulty: this.newDifficulty,
-      defaultPoints: 2.0,
+      defaultPoints: this.newDefaultPoints > 0 ? this.newDefaultPoints : 1.0,
       explanation: this.newExplanation.trim(),
-      tags: []
+      tags
     };
 
     if (this.newType === QuestionType.FillInTheBlank) {
@@ -374,10 +440,15 @@ export class QuestionBankComponent implements OnInit {
       }));
     }
 
-    this.http.post<ApiResponse<Question>>(`${environment.apiUrl}/questions`, payload).subscribe({
+    const editId = this.editingQuestionId();
+    const request$ = editId
+      ? this.http.put<ApiResponse>(`${environment.apiUrl}/questions/${editId}`, payload)
+      : this.http.post<ApiResponse<Question>>(`${environment.apiUrl}/questions`, payload);
+
+    request$.subscribe({
       next: res => {
         this.toast.success(res.message);
-        this.showCreateModal.set(false);
+        this.showModal.set(false);
         this.loadQuestions();
       },
       error: err => {
@@ -399,7 +470,7 @@ export class QuestionBankComponent implements OnInit {
   }
 
   getOptionLetter(index: number): string {
-    return String.fromCharCode(65 + index); // A, B, C, D...
+    return String.fromCharCode(65 + index);
   }
 
   getTypeLabel(type: QuestionType): string {

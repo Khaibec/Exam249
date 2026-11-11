@@ -22,6 +22,7 @@ public class ExamDto
     public bool ShuffleOptions { get; set; } = true;
     public bool ShowResultsImmediately { get; set; } = true;
     public bool AllowReview { get; set; } = true;
+    public bool RequireWebcam { get; set; } = false;
     public ExamStatus Status { get; set; }
     public int QuestionCount { get; set; }
     public double TotalPoints { get; set; }
@@ -54,6 +55,7 @@ public class CreateExamRequest
     public bool ShuffleOptions { get; set; } = true;
     public bool ShowResultsImmediately { get; set; } = true;
     public bool AllowReview { get; set; } = true;
+    public bool RequireWebcam { get; set; } = false;
     public List<CreateExamQuestionItemRequest> Questions { get; set; } = new();
 }
 
@@ -81,8 +83,20 @@ public class StudentExamViewDto
     public DateTime DeadlineUtc { get; set; }
     public int RemainingSeconds { get; set; }
     public string ExamVariantCode { get; set; } = "101";
+    public bool RequireWebcam { get; set; } = false;
+    public string ClientInstanceId { get; set; } = string.Empty;
     public List<StudentQuestionDto> Questions { get; set; } = new();
     public List<StudentAnswerItemDto> CurrentAnswers { get; set; } = new();
+}
+
+public class StartExamSessionRequest
+{
+    public string? ClientInstanceId { get; set; }
+}
+
+public class DisqualifySessionRequest
+{
+    public string Reason { get; set; } = "Vi phạm quy chế phòng thi";
 }
 
 public class StudentQuestionDto

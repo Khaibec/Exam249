@@ -9,9 +9,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
+        // AllowCredentials required for SignalR WebSocket/Negotiate through Gateway
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -27,8 +29,11 @@ app.UseCors("AllowFrontend");
 // Security Middleware: Block external access to internal service endpoints & strip internal headers
 app.Use(async (context, next) =>
 {
+    var pathValue = context.Request.Path.Value ?? string.Empty;
+
     // Prevent external clients from accessing internal endpoints
-    if (context.Request.Path.StartsWithSegments("/api/questions/batch-get", StringComparison.OrdinalIgnoreCase))
+    if (context.Request.Path.StartsWithSegments("/api/questions/batch-get", StringComparison.OrdinalIgnoreCase) ||
+        pathValue.Contains("/internal/", StringComparison.OrdinalIgnoreCase))
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         context.Response.ContentType = "application/json";
@@ -56,7 +61,8 @@ app.MapGet("/", () => Results.Ok(new
         "/api/questions",
         "/api/exams",
         "/api/anticheat",
-        "/api/reporting"
+        "/api/reporting",
+        "/hubs/anticheat"
     }
 }));
 

@@ -12,6 +12,7 @@ import { TeacherDashboardComponent } from './features/teacher/teacher-dashboard.
 import { ClassroomListComponent } from './features/teacher/classroom-list.component';
 import { QuestionBankComponent } from './features/teacher/question-bank.component';
 import { ExamManagerComponent } from './features/teacher/exam-manager.component';
+import { LiveProctoringComponent } from './features/teacher/live-proctoring.component';
 
 import { StudentDashboardComponent } from './features/student/student-dashboard.component';
 import { StudentClassesComponent } from './features/student/student-classes.component';
@@ -78,6 +79,12 @@ export const routes: Routes = [
       {
         path: 'teacher/exams',
         component: ExamManagerComponent,
+        canActivate: [roleGuard],
+        data: { roles: [UserRole.Teacher, UserRole.Admin] }
+      },
+      {
+        path: 'teacher/exams/:examId/proctoring',
+        component: LiveProctoringComponent,
         canActivate: [roleGuard],
         data: { roles: [UserRole.Teacher, UserRole.Admin] }
       },

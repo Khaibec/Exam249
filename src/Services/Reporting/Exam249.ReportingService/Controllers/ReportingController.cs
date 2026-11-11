@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Exam249.ReportingService.Data;
+using Exam249.ReportingService.Services;
 using Exam249.Shared.Contracts.Common;
 using Exam249.Shared.Contracts.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -14,19 +15,21 @@ namespace Exam249.ReportingService.Controllers;
 public class ReportingController : ControllerBase
 {
     private readonly ReportingDbContext _context;
+    private readonly ReportingAggregationClient _aggClient;
 
-    public ReportingController(ReportingDbContext context)
+    public ReportingController(ReportingDbContext context, ReportingAggregationClient aggClient)
     {
         _context = context;
+        _aggClient = aggClient;
     }
 
     [HttpGet("admin/dashboard")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<AdminDashboardDto>>> GetAdminDashboard()
     {
-        var recentLogs = await _context.SystemAuditLogs
+        var logsTask = _context.SystemAuditLogs
             .OrderByDescending(l => l.TimestampUtc)
-            .Take(5)
+            .Take(8)
             .Select(l => new RecentActivityItemDto
             {
                 Title = l.Action,
@@ -36,32 +39,36 @@ public class ReportingController : ControllerBase
             })
             .ToListAsync();
 
+        var identityTask = _aggClient.GetIdentityStatsAsync();
+        var classroomTask = _aggClient.GetClassroomStatsAsync();
+        var questionsTask = _aggClient.GetQuestionsCountAsync();
+        var examTask = _aggClient.GetExamOverviewAsync();
+
+        await Task.WhenAll(logsTask, identityTask, classroomTask, questionsTask, examTask);
+
+        var recentLogs = logsTask.Result;
         if (!recentLogs.Any())
         {
             recentLogs = new List<RecentActivityItemDto>
             {
-                new() { Title = "Khởi tạo hệ thống", Description = "Hệ thống Microservices Exam249 đã khởi động thành công", TimestampUtc = DateTime.UtcNow, Type = "System" },
-                new() { Title = "Nạp dữ liệu mẫu", Description = "Đã cấu hình tài khoản Demo, Ngân hàng câu hỏi và Đề thi mẫu", TimestampUtc = DateTime.UtcNow, Type = "Data" }
+                new() { Title = "Hệ thống sẵn sàng", Description = "Chưa có lượt nộp bài nào được ghi nhận qua Event Bus.", TimestampUtc = DateTime.UtcNow, Type = "System" }
             };
         }
 
-        var snapshots = await _context.ExamReportSnapshots.ToListAsync();
-
-        var totalSubmissions = snapshots.Any() ? snapshots.Sum(s => s.TotalSubmissions) : 15;
-        var avgScore = snapshots.Any() && snapshots.Sum(s => s.TotalSubmissions) > 0
-            ? Math.Round(snapshots.Sum(s => s.AverageScore * s.TotalSubmissions) / snapshots.Sum(s => s.TotalSubmissions), 1)
-            : 7.8;
+        var identityStats = identityTask.Result;
+        var classroomStats = classroomTask.Result;
+        var examStats = examTask.Result;
 
         var dashboard = new AdminDashboardDto
         {
-            TotalUsers = 4, // Admin, Teacher, Student1, Student2
-            TotalTeachers = 1,
-            TotalStudents = 2,
-            TotalClassrooms = 2,
-            TotalQuestions = 10,
-            TotalExams = Math.Max(2, snapshots.Count),
-            TotalSubmissions = totalSubmissions,
-            AverageSystemScore = avgScore,
+            TotalUsers = identityStats?.TotalUsers ?? 0,
+            TotalTeachers = identityStats?.TotalTeachers ?? 0,
+            TotalStudents = identityStats?.TotalStudents ?? 0,
+            TotalClassrooms = classroomStats?.TotalClassrooms ?? 0,
+            TotalQuestions = questionsTask.Result,
+            TotalExams = examStats?.TotalExams ?? 0,
+            TotalSubmissions = examStats?.TotalSubmissions ?? 0,
+            AverageSystemScore = examStats?.AverageScore ?? 0.0,
             RecentActivities = recentLogs
         };
 
@@ -72,57 +79,28 @@ public class ReportingController : ControllerBase
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<ApiResponse<TeacherDashboardDto>>> GetTeacherDashboard()
     {
-        var snapshots = await _context.ExamReportSnapshots.ToListAsync();
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(userIdStr, out var userId);
 
-        var recentExams = snapshots.Any()
-            ? snapshots.Select(s => new ExamSummaryItemDto
-            {
-                ExamId = s.ExamId,
-                Title = s.ExamTitle,
-                ClassroomName = s.ClassroomName,
-                SubmissionsCount = s.TotalSubmissions,
-                AverageScore = s.AverageScore,
-                PassRate = s.PassRate,
-                HighRiskCount = s.HighRiskCount,
-                EndTimeUtc = DateTime.UtcNow.AddDays(15)
-            }).ToList()
-            : new List<ExamSummaryItemDto>
-            {
-                new()
-                {
-                    ExamId = Guid.Parse("ee111111-1111-1111-1111-111111111111"),
-                    Title = "Kiểm tra 15 phút - Kiến trúc Microservices & C# .NET",
-                    ClassroomName = "CNTT - Lập trình Web C# / .NET",
-                    SubmissionsCount = 8,
-                    AverageScore = 8.2,
-                    PassRate = 92.0,
-                    HighRiskCount = 0,
-                    EndTimeUtc = DateTime.UtcNow.AddDays(15)
-                },
-                new()
-                {
-                    ExamId = Guid.Parse("ee222222-2222-2222-2222-222222222222"),
-                    Title = "Thi thử Tốt nghiệp THPT Quốc Gia - Môn Toán (Đề 101)",
-                    ClassroomName = "12A1 - Luyện thi THPT Quốc Gia",
-                    SubmissionsCount = 4,
-                    AverageScore = 7.4,
-                    PassRate = 85.0,
-                    HighRiskCount = 1,
-                    EndTimeUtc = DateTime.UtcNow.AddDays(20)
-                }
-            };
+        Guid? teacherFilter = role == "Teacher" ? userId : null;
 
-        var totalSubs = snapshots.Any() ? snapshots.Sum(s => s.TotalSubmissions) : 12;
-        var overallPass = snapshots.Any() ? Math.Round(snapshots.Average(s => s.PassRate), 1) : 88.5;
+        var classroomTask = _aggClient.GetClassroomStatsAsync(teacherFilter);
+        var examTask = _aggClient.GetExamOverviewAsync(teacherFilter);
+
+        await Task.WhenAll(classroomTask, examTask);
+
+        var classroomStats = classroomTask.Result;
+        var examStats = examTask.Result;
 
         var dashboard = new TeacherDashboardDto
         {
-            TotalClasses = 2,
-            TotalStudents = 2,
-            TotalExams = Math.Max(2, snapshots.Count),
-            TotalSubmissions = totalSubs,
-            OverallPassRate = overallPass,
-            RecentExams = recentExams
+            TotalClasses = classroomStats?.TotalClassrooms ?? 0,
+            TotalStudents = classroomStats?.TotalStudents ?? 0,
+            TotalExams = examStats?.TotalExams ?? 0,
+            TotalSubmissions = examStats?.TotalSubmissions ?? 0,
+            OverallPassRate = examStats?.OverallPassRate ?? 0.0,
+            RecentExams = examStats?.RecentExams ?? new List<ExamSummaryItemDto>()
         };
 
         return Ok(ApiResponse<TeacherDashboardDto>.Ok(dashboard));
@@ -132,55 +110,26 @@ public class ReportingController : ControllerBase
     [Authorize(Roles = "Student")]
     public async Task<ActionResult<ApiResponse<StudentDashboardDto>>> GetStudentDashboard()
     {
-        var studentName = User.FindFirstValue(ClaimTypes.Name) ?? "Học sinh";
+        var studentIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(studentIdStr, out var studentId))
+            return Unauthorized(ApiResponse<StudentDashboardDto>.Fail("Không thể xác định học sinh."));
+
+        var classesTask = _aggClient.GetStudentClassroomIdsAsync(studentId);
+        var examOverviewTask = _aggClient.GetStudentExamOverviewAsync(studentId);
+
+        await Task.WhenAll(classesTask, examOverviewTask);
+
+        var enrolledClasses = classesTask.Result ?? new List<Guid>();
+        var examOverview = examOverviewTask.Result;
 
         var dashboard = new StudentDashboardDto
         {
-            EnrolledClassesCount = 2,
-            PendingExamsCount = 2,
-            CompletedExamsCount = 3,
-            AverageScore = 8.5,
-            UpcomingExams = new List<StudentExamSummaryItemDto>
-            {
-                new()
-                {
-                    ExamId = Guid.Parse("ee111111-1111-1111-1111-111111111111"),
-                    Title = "Kiểm tra 15 phút - Kiến trúc Microservices & C# .NET",
-                    ClassroomName = "CNTT - Lập trình Web C# / .NET",
-                    SubjectName = "Tin Học & Lập Trình",
-                    DurationMinutes = 15,
-                    StartTimeUtc = DateTime.UtcNow.AddDays(-1),
-                    EndTimeUtc = DateTime.UtcNow.AddDays(30),
-                    IsOpen = true,
-                    AttemptsRemaining = 3
-                },
-                new()
-                {
-                    ExamId = Guid.Parse("ee222222-2222-2222-2222-222222222222"),
-                    Title = "Thi thử Tốt nghiệp THPT Quốc Gia - Môn Toán (Đề 101)",
-                    ClassroomName = "12A1 - Luyện thi THPT Quốc Gia",
-                    SubjectName = "Toán Học",
-                    DurationMinutes = 45,
-                    StartTimeUtc = DateTime.UtcNow.AddDays(-1),
-                    EndTimeUtc = DateTime.UtcNow.AddDays(30),
-                    IsOpen = true,
-                    AttemptsRemaining = 2
-                }
-            },
-            RecentResults = new List<StudentRecentResultItemDto>
-            {
-                new()
-                {
-                    SessionId = Guid.NewGuid(),
-                    ExamId = Guid.Parse("ee111111-1111-1111-1111-111111111111"),
-                    ExamTitle = "Kiểm tra 15 phút - Kiến trúc Microservices & C# .NET",
-                    SubjectName = "Tin Học & Lập Trình",
-                    Score = 8.0,
-                    MaxScore = 10.0,
-                    IsPassed = true,
-                    SubmittedAtUtc = DateTime.UtcNow.AddDays(-2)
-                }
-            }
+            EnrolledClassesCount = enrolledClasses.Count,
+            PendingExamsCount = examOverview?.PendingExamsCount ?? 0,
+            CompletedExamsCount = examOverview?.CompletedExamsCount ?? 0,
+            AverageScore = examOverview?.AverageScore ?? 0.0,
+            UpcomingExams = examOverview?.UpcomingExams ?? new List<StudentExamSummaryItemDto>(),
+            RecentResults = examOverview?.RecentResults ?? new List<StudentRecentResultItemDto>()
         };
 
         return Ok(ApiResponse<StudentDashboardDto>.Ok(dashboard));
@@ -190,41 +139,9 @@ public class ReportingController : ControllerBase
     [Authorize(Roles = "Teacher,Admin")]
     public async Task<ActionResult<ApiResponse<ExamAnalyticsDto>>> GetExamAnalytics(Guid examId)
     {
-        var snapshot = await _context.ExamReportSnapshots.FirstOrDefaultAsync(s => s.ExamId == examId);
-
-        var analytics = snapshot != null
-            ? new ExamAnalyticsDto
-            {
-                ExamId = examId,
-                Title = snapshot.ExamTitle,
-                ClassroomName = snapshot.ClassroomName,
-                TotalSubmissions = snapshot.TotalSubmissions,
-                AverageScore = snapshot.AverageScore,
-                HighestScore = snapshot.HighestScore,
-                LowestScore = snapshot.LowestScore,
-                PassRate = snapshot.PassRate,
-                ExcellentCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.3)),
-                GoodCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.4)),
-                AverageCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.2)),
-                WeakCount = Math.Max(0, (int)Math.Round(snapshot.TotalSubmissions * 0.1)),
-                HighRiskCount = snapshot.HighRiskCount
-            }
-            : new ExamAnalyticsDto
-            {
-                ExamId = examId,
-                Title = "Thống kê phân phối điểm kỳ thi",
-                ClassroomName = "Lớp học phụ trách",
-                TotalSubmissions = 28,
-                AverageScore = 7.6,
-                HighestScore = 10.0,
-                LowestScore = 3.5,
-                PassRate = 89.2,
-                ExcellentCount = 9,
-                GoodCount = 11,
-                AverageCount = 5,
-                WeakCount = 3,
-                HighRiskCount = 2
-            };
+        var analytics = await _aggClient.GetExamAnalyticsAsync(examId);
+        if (analytics == null)
+            return NotFound(ApiResponse<ExamAnalyticsDto>.Fail("Không tìm thấy dữ liệu phân tích cho kỳ thi này."));
 
         return Ok(ApiResponse<ExamAnalyticsDto>.Ok(analytics));
     }

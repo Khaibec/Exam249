@@ -79,6 +79,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_QuestionBank;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - Services__ClassroomUrl=http://classroom-service:8080
       - RabbitMq__Host=rabbitmq
     depends_on:
       sqlserver:
@@ -98,6 +99,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_Exam;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
       - Services__QuestionBankUrl=http://questionbank-service:8080
+      - Services__ClassroomUrl=http://classroom-service:8080
+      - Services__AntiCheatUrl=http://anticheat-service:8080
       - RabbitMq__Host=rabbitmq
     depends_on:
       sqlserver:
@@ -136,6 +139,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Exam249_Reporting;User Id=sa;Password=Test_MatKhau_2026!Aa;TrustServerCertificate=True
+      - Services__IdentityUrl=http://identity-service:8080
+      - Services__ClassroomUrl=http://classroom-service:8080
+      - Services__QuestionBankUrl=http://questionbank-service:8080
+      - Services__ExamUrl=http://exam-service:8080
       - RabbitMq__Host=rabbitmq
     depends_on:
       sqlserver:

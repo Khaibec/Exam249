@@ -44,7 +44,7 @@ public class ExamSessionsController : ControllerBase
 
     [HttpPost("{id:guid}/start-session")]
     [Authorize(Roles = "Student")]
-    public async Task<ActionResult<ApiResponse<StudentExamViewDto>>> StartSession(Guid id)
+    public async Task<ActionResult<ApiResponse<StudentExamViewDto>>> StartSession(Guid id, [FromBody] StartExamSessionRequest? request = null)
     {
         var studentIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var studentName = User.FindFirstValue(ClaimTypes.Name) ?? "Học sinh";
@@ -75,12 +75,18 @@ public class ExamSessionsController : ControllerBase
         if (now > exam.EndTimeUtc)
             return BadRequest(ApiResponse<StudentExamViewDto>.Fail("Kỳ thi đã kết thúc thời hạn làm bài."));
 
-        // Check attempts
+        // Check attempts (count both Submitted and Disqualified sessions)
         var completedAttempts = await _context.ExamSessions
-            .CountAsync(s => s.ExamId == id && s.StudentId == studentId && s.Status == SessionStatus.Submitted);
+            .CountAsync(s => s.ExamId == id && s.StudentId == studentId && (s.Status == SessionStatus.Submitted || s.Status == SessionStatus.Disqualified));
 
         if (completedAttempts >= exam.MaxAttempts)
             return BadRequest(ApiResponse<StudentExamViewDto>.Fail($"Bạn đã hoàn thành tối đa {exam.MaxAttempts} lần thi cho đề thi này."));
+
+        var incomingIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var incomingUa = Request.Headers.UserAgent.ToString();
+        var incomingClientId = !string.IsNullOrWhiteSpace(request?.ClientInstanceId)
+            ? request.ClientInstanceId.Trim()
+            : Guid.NewGuid().ToString("N");
 
         // Check if there is an in-progress session
         var existingSession = await _context.ExamSessions
@@ -97,6 +103,34 @@ public class ExamSessionsController : ControllerBase
                 await _context.SaveChangesAsync();
                 return BadRequest(ApiResponse<StudentExamViewDto>.Fail("Phiên làm bài trước đó đã quá hạn thời gian quy định."));
             }
+
+            // Detect concurrent access from another browser tab / device
+            var isDifferentClient = !string.IsNullOrEmpty(existingSession.ClientInstanceId) &&
+                                    !string.Equals(existingSession.ClientInstanceId, incomingClientId, StringComparison.Ordinal);
+            var isDifferentDevice = (!string.IsNullOrEmpty(existingSession.UserAgent) && !string.Equals(existingSession.UserAgent, incomingUa, StringComparison.Ordinal)) ||
+                                    (!string.IsNullOrEmpty(existingSession.IpAddress) && !string.Equals(existingSession.IpAddress, incomingIp, StringComparison.Ordinal));
+
+            if (isDifferentClient || isDifferentDevice)
+            {
+                await _antiCheatClient.RecordInternalViolationAsync(new InternalViolationRequest
+                {
+                    SessionId = existingSession.Id,
+                    ExamId = exam.Id,
+                    StudentId = studentId,
+                    Type = ViolationType.MultipleSessions,
+                    Description = "Phát hiện thí sinh mở phiên thi trên thiết bị/trình duyệt khác khi phiên hiện tại đang chạy",
+                    Metadata = $"PrevClient:{existingSession.ClientInstanceId}; NewClient:{incomingClientId}",
+                    IpAddress = incomingIp,
+                    UserAgent = incomingUa
+                });
+            }
+
+            if (string.IsNullOrEmpty(existingSession.ClientInstanceId))
+            {
+                existingSession.ClientInstanceId = incomingClientId;
+                await _context.SaveChangesAsync();
+            }
+
             session = existingSession;
         }
         else
@@ -119,14 +153,15 @@ public class ExamSessionsController : ControllerBase
                 DeadlineUtc = deadline,
                 Status = SessionStatus.InProgress,
                 ExamVariantCode = variantCode,
-                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                UserAgent = Request.Headers.UserAgent.ToString()
+                IpAddress = incomingIp,
+                UserAgent = incomingUa,
+                ClientInstanceId = incomingClientId
             };
 
             await _context.ExamSessions.AddAsync(session);
             await _context.SaveChangesAsync();
 
-            // Publish started event
+            // Publish started event (for RabbitMQ) and notify AntiCheatService directly (for local InMemory mode)
             await _publishEndpoint.Publish(new ExamSessionStartedEvent(
                 session.Id,
                 exam.Id,
@@ -135,8 +170,24 @@ public class ExamSessionsController : ControllerBase
                 now,
                 deadline,
                 session.IpAddress ?? "unknown",
-                session.UserAgent ?? "unknown"));
+                session.UserAgent ?? "unknown",
+                studentEmail,
+                variantCode,
+                exam.Questions.Count));
         }
+
+        await _antiCheatClient.InitLiveSessionAsync(new InitLiveSessionRequest
+        {
+            SessionId = session.Id,
+            ExamId = exam.Id,
+            StudentId = studentId,
+            StudentName = studentName,
+            StudentEmail = studentEmail,
+            ExamVariantCode = session.ExamVariantCode,
+            StartedAtUtc = session.StartedAtUtc,
+            DeadlineUtc = session.DeadlineUtc,
+            TotalQuestions = exam.Questions.Count
+        });
 
         // Fetch question details from QuestionBank
         var questionIds = exam.Questions.Select(q => q.QuestionId).ToList();
@@ -228,6 +279,8 @@ public class ExamSessionsController : ControllerBase
             DeadlineUtc = session.DeadlineUtc,
             RemainingSeconds = remainingSeconds,
             ExamVariantCode = session.ExamVariantCode,
+            RequireWebcam = exam.RequireWebcam,
+            ClientInstanceId = session.ClientInstanceId ?? string.Empty,
             Questions = studentQuestions,
             CurrentAnswers = currentAnswers
         };
@@ -252,6 +305,9 @@ public class ExamSessionsController : ControllerBase
         // Security Fix (CRIT-02): Verify student ownership to prevent BOLA/IDOR
         if (session.StudentId != currentStudentId)
             return Forbid();
+
+        if (session.Status == SessionStatus.Disqualified)
+            return BadRequest(ApiResponse.Fail($"Phiên làm bài đã bị giám thị đình chỉ: {session.DisqualificationReason ?? "Vi phạm quy chế"}"));
 
         if (session.Status != SessionStatus.InProgress)
             return BadRequest(ApiResponse.Fail("Phiên làm bài này đã kết thúc."));
@@ -312,6 +368,11 @@ public class ExamSessionsController : ControllerBase
         // Security Fix (CRIT-02): Verify student ownership to prevent BOLA/IDOR
         if (session.StudentId != studentId)
             return Forbid();
+
+        if (session.Status == SessionStatus.Disqualified)
+        {
+            return BadRequest(ApiResponse<ExamResultDto>.Fail($"Phiên làm bài đã bị đình chỉ: {session.DisqualificationReason ?? "Vi phạm quy chế"}"));
+        }
 
         if (session.Status == SessionStatus.Submitted)
         {
@@ -386,6 +447,8 @@ public class ExamSessionsController : ControllerBase
         await _context.ExamSubmissions.AddAsync(submission);
         await _context.SaveChangesAsync();
 
+        await _antiCheatClient.NotifySessionSubmittedAsync(session.Id, exam.Id);
+
         // Publish submitted event
         await _publishEndpoint.Publish(new ExamSubmittedEvent(
             session.Id,
@@ -398,10 +461,13 @@ public class ExamSessionsController : ControllerBase
             session.RiskScore,
             session.RiskLevel,
             session.StartedAtUtc,
-            submittedAt));
+            submittedAt,
+            exam.Title,
+            exam.ClassroomName));
 
         _logger.LogInformation("Exam session {SessionId} submitted successfully with score {Score}/{MaxScore}", session.Id, totalScore, maxScore);
 
+        var bankLookup = bankQuestions.ToDictionary(q => q.Id);
         var resultDto = new ExamResultDto
         {
             SessionId = session.Id,
@@ -431,7 +497,8 @@ public class ExamSessionsController : ControllerBase
                 TextAnswer = d.TextAnswer,
                 CorrectOptionIds = d.CorrectOptionIds,
                 AcceptedAnswers = d.AcceptedAnswers,
-                Explanation = d.Explanation
+                Explanation = d.Explanation,
+                Options = MapQuestionOptions(bankLookup, d.QuestionId)
             }).ToList() : null
         };
 
@@ -459,6 +526,15 @@ public class ExamSessionsController : ControllerBase
             return Forbid();
 
         var exam = submission.ExamSession.Exam;
+        var canSeeDetails = exam.AllowReview || role == "Teacher" || role == "Admin";
+
+        Dictionary<Guid, QuestionDto> bankLookup = new();
+        if (canSeeDetails && submission.Details.Any())
+        {
+            var qIds = submission.Details.Select(d => d.QuestionId).Distinct().ToList();
+            var bankQuestions = await _bankClient.BatchGetQuestionsAsync(qIds);
+            bankLookup = bankQuestions.ToDictionary(q => q.Id);
+        }
 
         var resultDto = new ExamResultDto
         {
@@ -476,8 +552,8 @@ public class ExamSessionsController : ControllerBase
             IsPassed = submission.IsPassed,
             RiskScore = submission.RiskScore,
             RiskLevel = submission.RiskLevel,
-            CanReview = exam.AllowReview,
-            Details = exam.AllowReview ? submission.Details.Select(d => new SubmissionDetailDto
+            CanReview = canSeeDetails,
+            Details = canSeeDetails ? submission.Details.Select(d => new SubmissionDetailDto
             {
                 QuestionId = d.QuestionId,
                 QuestionContent = d.QuestionContent,
@@ -489,11 +565,70 @@ public class ExamSessionsController : ControllerBase
                 TextAnswer = d.TextAnswer,
                 CorrectOptionIds = JsonSerializer.Deserialize<List<Guid>>(d.CorrectOptionIdsJson) ?? new(),
                 AcceptedAnswers = JsonSerializer.Deserialize<List<string>>(d.AcceptedAnswersJson) ?? new(),
-                Explanation = d.Explanation
+                Explanation = d.Explanation,
+                Options = MapQuestionOptions(bankLookup, d.QuestionId)
             }).ToList() : null
         };
 
         return Ok(ApiResponse<ExamResultDto>.Ok(resultDto));
+    }
+
+    [HttpPost("sessions/{sessionId:guid}/disqualify")]
+    [Authorize(Roles = "Teacher,Admin")]
+    public async Task<ActionResult<ApiResponse>> DisqualifySession(Guid sessionId, [FromBody] DisqualifySessionRequest request)
+    {
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(currentUserIdStr, out var currentUserId);
+
+        var session = await _context.ExamSessions
+            .Include(s => s.Exam)
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+
+        if (session == null)
+            return NotFound(ApiResponse.Fail("Không tìm thấy phiên thi."));
+
+        if (role == "Teacher" && session.Exam.TeacherId != currentUserId)
+            return Forbid();
+
+        if (session.Status == SessionStatus.Submitted)
+            return BadRequest(ApiResponse.Fail("Thí sinh đã hoàn tất nộp bài trước đó."));
+
+        var reason = string.IsNullOrWhiteSpace(request.Reason)
+            ? "Vi phạm quy chế phòng thi nghiêm trọng"
+            : request.Reason.Trim();
+
+        session.Status = SessionStatus.Disqualified;
+        session.DisqualificationReason = reason;
+        session.SubmittedAtUtc = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        await _antiCheatClient.NotifySessionDisqualifiedAsync(session.Id, session.ExamId, reason);
+        await _publishEndpoint.Publish(new SessionDisqualifiedEvent(
+            session.Id,
+            session.ExamId,
+            session.StudentId,
+            reason,
+            DateTime.UtcNow));
+
+        return Ok(ApiResponse.Ok("Đã đình chỉ phiên thi của thí sinh."));
+    }
+
+    private static List<StudentOptionDto> MapQuestionOptions(Dictionary<Guid, QuestionDto> bankLookup, Guid questionId)
+    {
+        if (!bankLookup.TryGetValue(questionId, out var q) || q.Options == null)
+            return new List<StudentOptionDto>();
+
+        return q.Options
+            .OrderBy(o => o.OrderIndex)
+            .Select(o => new StudentOptionDto
+            {
+                Id = o.Id,
+                Content = o.Content,
+                OrderIndex = o.OrderIndex
+            })
+            .ToList();
     }
 
     [HttpGet("my-history")]

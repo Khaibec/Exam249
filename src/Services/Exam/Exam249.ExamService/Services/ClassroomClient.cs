@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Exam249.Shared.Common.Security;
 using Exam249.Shared.Contracts.Common;
+using Exam249.Shared.Contracts.DTOs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -23,6 +24,50 @@ public class ClassroomClient
         {
             _httpClient.DefaultRequestHeaders.Add(InternalSecurityConstants.HeaderName, internalSecret);
         }
+    }
+
+    public async Task<ClassroomDto?> GetClassroomAsync(Guid classroomId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/classrooms/{classroomId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<ApiResponse<ClassroomDto>>();
+                if (result?.Success == true)
+                {
+                    return result.Data;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch classroom {ClassroomId}", classroomId);
+        }
+
+        return null;
+    }
+
+    public async Task<SubjectDto?> GetSubjectAsync(Guid subjectId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/subjects/{subjectId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<ApiResponse<SubjectDto>>();
+                if (result?.Success == true)
+                {
+                    return result.Data;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch subject {SubjectId}", subjectId);
+        }
+
+        return null;
     }
 
     public async Task<List<Guid>> GetStudentEnrolledClassroomIdsAsync(Guid studentId)

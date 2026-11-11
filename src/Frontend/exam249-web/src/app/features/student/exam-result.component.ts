@@ -1,14 +1,15 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
-import { ApiResponse, ExamResult, QuestionType, RiskLevel } from '../../core/models/models';
+import { ApiResponse, ExamResult, QuestionType, RiskLevel, SubmissionDetail } from '../../core/models/models';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-exam-result',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   template: `
     <div class="max-w-4xl mx-auto space-y-6 pb-12" *ngIf="result() as res">
       
@@ -65,10 +66,11 @@ import { ApiResponse, ExamResult, QuestionType, RiskLevel } from '../../core/mod
         </div>
 
         <div class="mt-8 flex items-center justify-center space-x-3">
-          <a routerLink="/student/dashboard"
-             class="px-6 py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-            <i class="fa-solid fa-arrow-left mr-1.5"></i> Về Trang Chủ Học Sinh
-          </a>
+          <button (click)="goBack()"
+                  class="px-6 py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+            <i class="fa-solid fa-arrow-left mr-1.5"></i>
+            {{ authService.isStudent() ? 'Về Trang Chủ Học Sinh' : 'Quay Lại Quản Lý Đề Thi' }}
+          </button>
         </div>
       </div>
 
@@ -76,7 +78,7 @@ import { ApiResponse, ExamResult, QuestionType, RiskLevel } from '../../core/mod
       <div *ngIf="res.canReview && res.details && res.details.length > 0" class="space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-bold text-slate-900">Chi Tiết Bài Làm & Đáp Án</h2>
-          <span class="text-xs text-slate-500 font-medium">Đối chiếu câu trả lời của bạn với đáp án chính xác</span>
+          <span class="text-xs text-slate-500 font-medium">Đối chiếu từng lựa chọn với đáp án chính xác</span>
         </div>
 
         <div *ngFor="let d of res.details; let idx = index"
@@ -101,8 +103,36 @@ import { ApiResponse, ExamResult, QuestionType, RiskLevel } from '../../core/mod
 
           <h3 class="text-sm font-semibold text-slate-900 leading-relaxed">{{ d.questionContent }}</h3>
 
-          <!-- Student's answer display -->
-          <div class="p-3 rounded-xl text-xs space-y-1"
+          <!-- Options comparison for Choice questions -->
+          <div *ngIf="d.type !== QuestionType.FillInTheBlank && d.options && d.options.length > 0" class="space-y-2">
+            <div *ngFor="let opt of d.options; let oIdx = index"
+                 class="p-3 rounded-xl border text-xs flex items-center justify-between"
+                 [ngClass]="getOptionClass(d, opt.id)">
+              <div class="flex items-center space-x-2.5">
+                <span class="w-6 h-6 rounded-lg flex items-center justify-center font-bold text-[11px]"
+                      [ngClass]="getOptionBadgeClass(d, opt.id)">
+                  {{ getOptionLetter(oIdx) }}
+                </span>
+                <span>{{ opt.content }}</span>
+              </div>
+
+              <div class="flex items-center space-x-2 text-[11px] font-bold">
+                <span *ngIf="isSelectedOption(d, opt.id) && isCorrectOption(d, opt.id)" class="text-emerald-700">
+                  <i class="fa-solid fa-circle-check mr-1"></i> Bạn chọn đúng
+                </span>
+                <span *ngIf="isSelectedOption(d, opt.id) && !isCorrectOption(d, opt.id)" class="text-rose-700">
+                  <i class="fa-solid fa-circle-xmark mr-1"></i> Bạn chọn sai
+                </span>
+                <span *ngIf="!isSelectedOption(d, opt.id) && isCorrectOption(d, opt.id)" class="text-emerald-700">
+                  <i class="fa-solid fa-check mr-1"></i> Đáp án đúng
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fallback if options were not fetched or for FillInTheBlank -->
+          <div *ngIf="d.type === QuestionType.FillInTheBlank || !d.options || d.options.length === 0"
+               class="p-3 rounded-xl text-xs space-y-1"
                [ngClass]="d.isCorrect ? 'bg-emerald-50/60 border border-emerald-100 text-emerald-900' : 'bg-rose-50/60 border border-rose-100 text-rose-900'">
             <div>
               <strong>Câu trả lời của bạn: </strong>
@@ -112,7 +142,6 @@ import { ApiResponse, ExamResult, QuestionType, RiskLevel } from '../../core/mod
               </span>
             </div>
 
-            <!-- If incorrect, show correct answer -->
             <div *ngIf="!d.isCorrect && d.type === QuestionType.FillInTheBlank" class="text-emerald-700 font-semibold pt-1">
               <strong>Đáp án đúng: </strong> "{{ d.acceptedAnswers.join('", "') }}"
             </div>
@@ -125,12 +154,19 @@ import { ApiResponse, ExamResult, QuestionType, RiskLevel } from '../../core/mod
         </div>
       </div>
 
+      <div *ngIf="!res.canReview" class="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-center text-xs text-amber-800 font-semibold">
+        <i class="fa-solid fa-eye-slash mr-1.5"></i>
+        Giáo viên đã tắt chế độ xem lại đáp án chi tiết cho kỳ thi này.
+      </div>
+
     </div>
   `
 })
 export class ExamResultComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private http = inject(HttpClient);
+  authService = inject(AuthService);
 
   QuestionType = QuestionType;
   RiskLevel = RiskLevel;
@@ -148,6 +184,46 @@ export class ExamResultComponent implements OnInit {
         }
       }
     });
+  }
+
+  goBack(): void {
+    if (this.authService.isStudent()) {
+      this.router.navigate(['/student/dashboard']);
+    } else {
+      this.router.navigate(['/teacher/exams']);
+    }
+  }
+
+  isSelectedOption(d: SubmissionDetail, optionId: string): boolean {
+    return d.selectedOptionIds.includes(optionId);
+  }
+
+  isCorrectOption(d: SubmissionDetail, optionId: string): boolean {
+    return d.correctOptionIds.includes(optionId);
+  }
+
+  getOptionClass(d: SubmissionDetail, optionId: string): string {
+    const selected = this.isSelectedOption(d, optionId);
+    const correct = this.isCorrectOption(d, optionId);
+    if (correct) {
+      return 'bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold';
+    }
+    if (selected && !correct) {
+      return 'bg-rose-50 border-rose-300 text-rose-900 font-semibold';
+    }
+    return 'bg-slate-50 border-slate-200 text-slate-600';
+  }
+
+  getOptionBadgeClass(d: SubmissionDetail, optionId: string): string {
+    const selected = this.isSelectedOption(d, optionId);
+    const correct = this.isCorrectOption(d, optionId);
+    if (correct) return 'bg-emerald-500 text-white';
+    if (selected && !correct) return 'bg-rose-500 text-white';
+    return 'bg-slate-200 text-slate-600';
+  }
+
+  getOptionLetter(index: number): string {
+    return String.fromCharCode(65 + index);
   }
 
   formatDuration(seconds: number): string {

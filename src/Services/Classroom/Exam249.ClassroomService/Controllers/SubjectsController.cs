@@ -1,10 +1,12 @@
 using Exam249.ClassroomService.Data;
 using Exam249.ClassroomService.Entities;
+using Exam249.Shared.Common.Security;
 using Exam249.Shared.Contracts.Common;
 using Exam249.Shared.Contracts.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Exam249.ClassroomService.Controllers;
 
@@ -14,10 +16,12 @@ namespace Exam249.ClassroomService.Controllers;
 public class SubjectsController : ControllerBase
 {
     private readonly ClassroomDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public SubjectsController(ClassroomDbContext context)
+    public SubjectsController(ClassroomDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -40,8 +44,15 @@ public class SubjectsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<SubjectDto>>> GetSubjectById(Guid id)
     {
+        var isInternal = InternalSecurityConstants.IsValidInternalRequest(Request, _configuration);
+        if (!isInternal && User.Identity?.IsAuthenticated != true)
+        {
+            return Unauthorized(ApiResponse<SubjectDto>.Fail("Yêu cầu không được ủy quyền."));
+        }
+
         var s = await _context.Subjects.FindAsync(id);
         if (s == null || s.IsDeleted)
             return NotFound(ApiResponse<SubjectDto>.Fail("Không tìm thấy môn học."));

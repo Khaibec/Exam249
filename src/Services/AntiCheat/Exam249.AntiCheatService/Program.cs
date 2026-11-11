@@ -1,5 +1,7 @@
 using Exam249.AntiCheatService.Consumers;
 using Exam249.AntiCheatService.Data;
+using Exam249.AntiCheatService.Hubs;
+using Exam249.AntiCheatService.Services;
 using Exam249.Shared.Common.Middleware;
 using Exam249.Shared.Common.Security;
 using Exam249.Shared.EventBus;
@@ -23,7 +25,12 @@ builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedEventBus(builder.Configuration, x =>
 {
     x.AddConsumer<ExamSessionStartedConsumer>();
+    x.AddConsumer<ExamSubmittedConsumer>();
+    x.AddConsumer<SessionDisqualifiedConsumer>();
 });
+
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<LiveProctoringRegistry>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -66,9 +73,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        // AllowCredentials required for SignalR WebSocket/Negotiate requests
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -78,6 +87,12 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AntiCheatDbContext>();
     await context.Database.EnsureCreatedAsync();
+    if (context.Database.IsSqlServer())
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            IF COL_LENGTH('RiskAssessments', 'ExamId') IS NULL
+                ALTER TABLE RiskAssessments ADD ExamId uniqueidentifier NULL;");
+    }
 }
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
@@ -93,5 +108,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<ProctoringHub>("/hubs/anticheat");
 
 app.Run();

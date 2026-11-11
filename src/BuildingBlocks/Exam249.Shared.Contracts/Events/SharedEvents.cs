@@ -10,7 +10,10 @@ public record ExamSessionStartedEvent(
     DateTime StartedAtUtc,
     DateTime DeadlineUtc,
     string IpAddress,
-    string UserAgent);
+    string UserAgent,
+    string StudentEmail = "",
+    string ExamVariantCode = "101",
+    int TotalQuestions = 0);
 
 public record ViolationRecordedEvent(
     Guid SessionId,
@@ -34,4 +37,13 @@ public record ExamSubmittedEvent(
     int RiskScore,
     RiskLevel RiskLevel,
     DateTime StartedAtUtc,
-    DateTime SubmittedAtUtc);
+    DateTime SubmittedAtUtc,
+    string ExamTitle = "",
+    string ClassroomName = "");
+
+public record SessionDisqualifiedEvent(
+    Guid SessionId,
+    Guid ExamId,
+    Guid StudentId,
+    string Reason,
+    DateTime DisqualifiedAtUtc);

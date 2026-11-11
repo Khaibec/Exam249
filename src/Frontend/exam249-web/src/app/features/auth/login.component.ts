@@ -25,10 +25,24 @@ import { UserRole } from '../../core/models/models';
       </div>
 
       <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div class="bg-slate-800/90 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-2xl sm:px-10 border border-slate-700/80">
+        <div class="bg-slate-800/90 backdrop-blur-xl py-7 px-6 shadow-2xl rounded-2xl sm:px-10 border border-slate-700/80">
           
+          <!-- Mode Toggle Tabs -->
+          <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-900/90 rounded-xl border border-slate-700/60 mb-6">
+            <button type="button" (click)="mode.set('login')"
+                    class="py-2 text-xs font-bold rounded-lg transition-all"
+                    [ngClass]="mode() === 'login' ? 'bg-brand-600 text-white shadow' : 'text-slate-400 hover:text-white'">
+              Đăng Nhập
+            </button>
+            <button type="button" (click)="mode.set('register')"
+                    class="py-2 text-xs font-bold rounded-lg transition-all"
+                    [ngClass]="mode() === 'register' ? 'bg-brand-600 text-white shadow' : 'text-slate-400 hover:text-white'">
+              Đăng Ký Học Sinh
+            </button>
+          </div>
+
           <!-- Login Form -->
-          <form (submit)="onSubmit()" class="space-y-5">
+          <form *ngIf="mode() === 'login'" (submit)="onSubmit()" class="space-y-5">
             <div>
               <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Email Đăng Nhập</label>
               <div class="relative">
@@ -57,6 +71,43 @@ import { UserRole } from '../../core/models/models';
                     class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-brand-600 hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-50 transition-all">
               <i *ngIf="isLoading()" class="fa-solid fa-circle-notch fa-spin mr-2"></i>
               {{ isLoading() ? 'Đang xác thực...' : 'Đăng Nhập Hệ Thống' }}
+            </button>
+          </form>
+
+          <!-- Register Form -->
+          <form *ngIf="mode() === 'register'" (submit)="onRegister()" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Họ và Tên</label>
+              <input type="text" [(ngModel)]="regFullName" name="regFullName" required
+                     placeholder="Ví dụ: Nguyễn Văn Minh"
+                     class="block w-full px-3.5 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Email</label>
+              <input type="email" [(ngModel)]="regEmail" name="regEmail" required
+                     placeholder="hocsinh@example.com"
+                     class="block w-full px-3.5 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Số Điện Thoại</label>
+              <input type="tel" [(ngModel)]="regPhone" name="regPhone"
+                     placeholder="09xxxxxxxx"
+                     class="block w-full px-3.5 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm" />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">Mật Khẩu (tối thiểu 6 ký tự)</label>
+              <input type="password" [(ngModel)]="regPassword" name="regPassword" required minlength="6"
+                     placeholder="••••••••"
+                     class="block w-full px-3.5 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm" />
+            </div>
+
+            <button type="submit" [disabled]="isLoading()"
+                    class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition-all">
+              <i *ngIf="isLoading()" class="fa-solid fa-circle-notch fa-spin mr-2"></i>
+              {{ isLoading() ? 'Đang tạo tài khoản...' : 'Tạo Tài Khoản Học Sinh' }}
             </button>
           </form>
 
@@ -107,11 +158,20 @@ export class LoginComponent {
   toast = inject(ToastService);
   router = inject(Router);
 
+  mode = signal<'login' | 'register'>('login');
+
   email = '';
   password = '';
+
+  regFullName = '';
+  regEmail = '';
+  regPhone = '';
+  regPassword = '';
+
   isLoading = signal(false);
 
   quickLogin(e: string, p: string): void {
+    this.mode.set('login');
     this.email = e;
     this.password = p;
     this.onSubmit();
@@ -139,6 +199,38 @@ export class LoginComponent {
         this.isLoading.set(false);
         const errorMsg = err.error?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại.';
         this.toast.error(errorMsg);
+      }
+    });
+  }
+
+  onRegister(): void {
+    if (!this.regFullName.trim() || !this.regEmail.trim() || !this.regPassword) {
+      this.toast.error('Vui lòng nhập đầy đủ họ tên, email và mật khẩu.');
+      return;
+    }
+
+    if (this.regPassword.length < 6) {
+      this.toast.error('Mật khẩu phải có ít nhất 6 ký tự.');
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.authService.register({
+      fullName: this.regFullName.trim(),
+      email: this.regEmail.trim(),
+      phoneNumber: this.regPhone.trim(),
+      password: this.regPassword
+    }).subscribe({
+      next: res => {
+        this.isLoading.set(false);
+        if (res.success && res.data) {
+          this.toast.success('Đăng ký tài khoản thành công!');
+          this.router.navigate(['/student/dashboard']);
+        }
+      },
+      error: err => {
+        this.isLoading.set(false);
+        this.toast.error(err.error?.message || 'Không thể đăng ký tài khoản. Vui lòng thử lại.');
       }
     });
   }

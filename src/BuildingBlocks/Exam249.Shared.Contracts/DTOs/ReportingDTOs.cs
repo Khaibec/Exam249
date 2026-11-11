@@ -94,3 +94,35 @@ public class ExamAnalyticsDto
     public int WeakCount { get; set; }      // < 5.0
     public int HighRiskCount { get; set; }
 }
+
+// Internal cross-service aggregation DTOs
+public class IdentityStatsDto
+{
+    public int TotalUsers { get; set; }
+    public int TotalTeachers { get; set; }
+    public int TotalStudents { get; set; }
+}
+
+public class ClassroomStatsDto
+{
+    public int TotalClassrooms { get; set; }
+    public int TotalStudents { get; set; }
+}
+
+public class ExamOverviewStatsDto
+{
+    public int TotalExams { get; set; }
+    public int TotalSubmissions { get; set; }
+    public double AverageScore { get; set; }
+    public double OverallPassRate { get; set; }
+    public List<ExamSummaryItemDto> RecentExams { get; set; } = new();
+}
+
+public class StudentExamOverviewDto
+{
+    public int PendingExamsCount { get; set; }
+    public int CompletedExamsCount { get; set; }
+    public double AverageScore { get; set; }
+    public List<StudentExamSummaryItemDto> UpcomingExams { get; set; } = new();
+    public List<StudentRecentResultItemDto> RecentResults { get; set; } = new();
+}

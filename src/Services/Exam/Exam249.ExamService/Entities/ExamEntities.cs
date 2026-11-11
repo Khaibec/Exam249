@@ -22,6 +22,7 @@ public class Exam : BaseEntity
     public bool ShuffleOptions { get; set; } = true;
     public bool ShowResultsImmediately { get; set; } = true;
     public bool AllowReview { get; set; } = true;
+    public bool RequireWebcam { get; set; } = false;
     public ExamStatus Status { get; set; } = ExamStatus.Published;
 
     public ICollection<ExamQuestion> Questions { get; set; } = new List<ExamQuestion>();
@@ -63,6 +64,8 @@ public class ExamSession : BaseEntity
 
     public string? IpAddress { get; set; }
     public string? UserAgent { get; set; }
+    public string? ClientInstanceId { get; set; }
+    public string? DisqualificationReason { get; set; }
 
     public ICollection<ExamSessionAnswer> CurrentAnswers { get; set; } = new List<ExamSessionAnswer>();
     public ExamSubmission? Submission { get; set; }

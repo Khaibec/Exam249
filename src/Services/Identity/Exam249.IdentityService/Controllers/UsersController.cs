@@ -7,6 +7,7 @@ using Exam249.Shared.Contracts.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Exam249.IdentityService.Controllers;
 
@@ -16,10 +17,12 @@ namespace Exam249.IdentityService.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IdentityDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public UsersController(IdentityDbContext context)
+    public UsersController(IdentityDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -199,5 +202,25 @@ public class UsersController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(ApiResponse.Ok("Cập nhật thông tin thành công."));
+    }
+
+    [HttpGet("internal/stats")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<IdentityStatsDto>>> GetInternalStats()
+    {
+        if (!InternalSecurityConstants.IsValidInternalRequest(Request, _configuration))
+        {
+            return Forbid();
+        }
+
+        var usersQuery = _context.Users.Where(u => !u.IsDeleted);
+        var stats = new IdentityStatsDto
+        {
+            TotalUsers = await usersQuery.CountAsync(),
+            TotalTeachers = await usersQuery.CountAsync(u => u.Role == UserRole.Teacher),
+            TotalStudents = await usersQuery.CountAsync(u => u.Role == UserRole.Student)
+        };
+
+        return Ok(ApiResponse<IdentityStatsDto>.Ok(stats));
     }
 }

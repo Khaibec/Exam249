@@ -1,5 +1,6 @@
 using Exam249.ReportingService.Consumers;
 using Exam249.ReportingService.Data;
+using Exam249.ReportingService.Services;
 using Exam249.Shared.Common.Middleware;
 using Exam249.Shared.Common.Security;
 using Exam249.Shared.EventBus;
@@ -19,6 +20,8 @@ builder.Services.AddDbContext<ReportingDbContext>(options =>
     });
 });
 
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ReportingAggregationClient>();
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedEventBus(builder.Configuration, x =>
 {

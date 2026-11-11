@@ -18,12 +18,16 @@ export class AntiCheatService {
   isFullscreen = signal<boolean>(false);
 
   private activeSessionId: string | null = null;
+  private activeExamId: string | null = null;
+  private onCriticalViolationHook: ((type: ViolationType) => void) | null = null;
   private listenersAttached = false;
 
   constructor(private http: HttpClient, private toast: ToastService) {}
 
-  startMonitoring(sessionId: string): void {
+  startMonitoring(sessionId: string, examId?: string, onCriticalViolation?: (type: ViolationType) => void): void {
     this.activeSessionId = sessionId;
+    this.activeExamId = examId ?? null;
+    this.onCriticalViolationHook = onCriticalViolation ?? null;
     this.violationCount.set(0);
     this.riskScore.set(0);
     this.riskLevel.set(RiskLevel.Safe);
@@ -36,6 +40,9 @@ export class AntiCheatService {
 
   stopMonitoring(): void {
     this.activeSessionId = null;
+    this.activeExamId = null;
+    this.onCriticalViolationHook = null;
+    this.isOverlayWarningVisible.set(false);
     this.detachClientListeners();
     this.listenersAttached = false;
     this.exitFullscreen();
@@ -163,11 +170,16 @@ export class AntiCheatService {
 
     const payload = {
       sessionId: this.activeSessionId,
+      examId: this.activeExamId,
       type,
       description,
       metadata,
       userAgent: navigator.userAgent
     };
+
+    if (type === ViolationType.TabSwitch || type === ViolationType.FullscreenExit) {
+      this.onCriticalViolationHook?.(type);
+    }
 
     this.http.post<any>(`${this.apiUrl}/violations`, payload).subscribe({
       next: res => {
@@ -184,9 +196,10 @@ export class AntiCheatService {
     });
   }
 
-  // Extension Point: Webcam snapshot capture
-  async captureWebcamSnapshot(videoElement: HTMLVideoElement): Promise<string | null> {
+  // Webcam snapshot capture
+  async captureWebcamSnapshot(videoElement: HTMLVideoElement, triggerReason: string = 'Periodic'): Promise<string | null> {
     try {
+      if (!videoElement || videoElement.readyState < 2) return null;
       const canvas = document.createElement('canvas');
       canvas.width = videoElement.videoWidth || 320;
       canvas.height = videoElement.videoHeight || 240;
@@ -199,8 +212,9 @@ export class AntiCheatService {
       if (this.activeSessionId) {
         this.http.post(`${this.apiUrl}/sessions/${this.activeSessionId}/snapshots`, {
           sessionId: this.activeSessionId,
+          examId: this.activeExamId,
           base64Image: base64,
-          triggerReason: 'Periodic'
+          triggerReason
         }).subscribe();
       }
 

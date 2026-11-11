@@ -78,6 +78,16 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ExamDbContext>();
     await ExamDbSeeder.SeedAsync(context);
+    if (context.Database.IsSqlServer())
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            IF COL_LENGTH('Exams', 'RequireWebcam') IS NULL
+                ALTER TABLE Exams ADD RequireWebcam bit NOT NULL DEFAULT 0;
+            IF COL_LENGTH('ExamSessions', 'ClientInstanceId') IS NULL
+                ALTER TABLE ExamSessions ADD ClientInstanceId nvarchar(100) NULL;
+            IF COL_LENGTH('ExamSessions', 'DisqualificationReason') IS NULL
+                ALTER TABLE ExamSessions ADD DisqualificationReason nvarchar(500) NULL;");
+    }
 }
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();

@@ -44,8 +44,8 @@ public class ExamSubmittedConsumer : IConsumer<ExamSubmittedEvent>
             snapshot = new ExamReportSnapshot
             {
                 ExamId = msg.ExamId,
-                ExamTitle = "Bài thi đã nộp",
-                ClassroomName = "Lớp học",
+                ExamTitle = string.IsNullOrWhiteSpace(msg.ExamTitle) ? "Bài thi đã nộp" : msg.ExamTitle,
+                ClassroomName = string.IsNullOrWhiteSpace(msg.ClassroomName) ? "Lớp học" : msg.ClassroomName,
                 TotalSubmissions = 1,
                 AverageScore = Math.Round(msg.FinalScore, 2),
                 HighestScore = msg.FinalScore,
@@ -57,6 +57,8 @@ public class ExamSubmittedConsumer : IConsumer<ExamSubmittedEvent>
         }
         else
         {
+            if (!string.IsNullOrWhiteSpace(msg.ExamTitle)) snapshot.ExamTitle = msg.ExamTitle;
+            if (!string.IsNullOrWhiteSpace(msg.ClassroomName)) snapshot.ClassroomName = msg.ClassroomName;
             var prevCount = snapshot.TotalSubmissions;
             var newCount = prevCount + 1;
             snapshot.AverageScore = Math.Round(((snapshot.AverageScore * prevCount) + msg.FinalScore) / newCount, 2);
